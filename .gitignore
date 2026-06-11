@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / UI
+node_modules/
+ui/dist/
+ui/.vite/
+
+# AFR runtime data
+*.db
+*.db-wal
+*.db-shm
+afr_data/
+.afr/
+exports/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# NOTE: the root dist/ folder holds the committed MVP snapshot and is tracked;
+# only ui/dist/ (build output) is ignored above.
