@@ -1,0 +1,15 @@
+[project]
+name = "afr-sdk"
+version = "0.1.0"
+description = "Agent Flight Recorder SDK — record model calls, tool calls, state, and checkpoints from your agent"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["afr*"]

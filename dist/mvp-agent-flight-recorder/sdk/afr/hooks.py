@@ -1,0 +1,122 @@
+"""Resume handlers — the client half of the AFR replay contract.
+
+Register a function that knows how to resume *your* agent from a state dict:
+
+    import afr
+
+    @afr.register_resume_handler
+    def resume(ctx: afr.ReplayContext):
+        agent = MyAgent.from_state(ctx.state)
+        return agent.continue_run()
+
+Then `afr.replay(run_id, checkpoint_id)` (or `afr replay` from the CLI)
+fetches the replay ticket from the backend and invokes your handler with a
+ReplayContext. In `dry_run` mode the handler is *not* invoked — you just get
+the ticket back.
+"""
+
+from __future__ import annotations
+
+import importlib
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+from afr.client import AFRClient
+from afr.types import MODE_DRY_RUN
+
+ResumeHandler = Callable[["ReplayContext"], Any]
+
+_handlers: dict[str, ResumeHandler] = {}
+
+
+@dataclass
+class ReplayContext:
+    """Everything a resume handler needs to pick up where the run left off."""
+
+    run_id: str
+    checkpoint_id: str
+    label: str | None
+    mode: str
+    state: dict[str, Any]
+    ticket: dict[str, Any] = field(default_factory=dict)
+
+
+def register_resume_handler(
+    fn: ResumeHandler | None = None, *, name: str = "default"
+) -> Any:
+    """Register a resume handler (usable bare or as @register_resume_handler)."""
+
+    def _register(handler: ResumeHandler) -> ResumeHandler:
+        _handlers[name] = handler
+        return handler
+
+    return _register(fn) if fn is not None else _register
+
+
+def get_resume_handler(name: str = "default") -> ResumeHandler | None:
+    return _handlers.get(name)
+
+
+def clear_resume_handlers() -> None:
+    _handlers.clear()
+
+
+def load_callable(spec: str) -> Callable[..., Any]:
+    """Load 'package.module:attr' — used by `afr replay --handler`."""
+    module_name, _, attr = spec.partition(":")
+    if not module_name or not attr:
+        raise ValueError(f"handler spec must look like 'package.module:function', got {spec!r}")
+    module = importlib.import_module(module_name)
+    fn = getattr(module, attr)
+    if not callable(fn):
+        raise TypeError(f"{spec} is not callable")
+    return fn
+
+
+def build_replay_context(ticket: dict[str, Any]) -> ReplayContext:
+    return ReplayContext(
+        run_id=ticket["run_id"],
+        checkpoint_id=ticket["checkpoint_id"],
+        label=ticket.get("label"),
+        mode=ticket.get("mode", MODE_DRY_RUN),
+        state=ticket.get("state") or {},
+        ticket=ticket,
+    )
+
+
+def replay(
+    run_id: str,
+    checkpoint_id: str,
+    mode: str = MODE_DRY_RUN,
+    *,
+    client: AFRClient | None = None,
+    api_url: str | None = None,
+    handler: ResumeHandler | str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    """Request a replay ticket; invoke a resume handler unless mode is dry_run.
+
+    Returns {"ticket": <server response>, "handler_result": <whatever your
+    handler returned, or None>, "handler_invoked": bool}.
+    """
+    owns_client = client is None
+    client = client or AFRClient(api_url)
+    try:
+        ticket = client.replay(run_id, checkpoint_id, mode=mode, **extra)
+    finally:
+        if owns_client:
+            client.close()
+
+    resolved: ResumeHandler | None
+    if isinstance(handler, str):
+        resolved = load_callable(handler)  # type: ignore[assignment]
+    else:
+        resolved = handler or get_resume_handler()
+
+    result: Any = None
+    invoked = False
+    if mode != MODE_DRY_RUN and resolved is not None:
+        result = resolved(build_replay_context(ticket))
+        invoked = True
+
+    return {"ticket": ticket, "handler_result": result, "handler_invoked": invoked}

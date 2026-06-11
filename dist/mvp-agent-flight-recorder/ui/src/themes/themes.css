@@ -1,0 +1,173 @@
+/* ==========================================================================
+   AGENT FLIGHT RECORDER — theme tokens
+   Three instruments panels: Daylight Ops, Night Ops, and Cyber Orchid.
+   Every component styles itself exclusively through these variables.
+   ========================================================================== */
+
+:root {
+  --font-display: "Chakra Petch", "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}
+
+/* --------------------------------------------------------------------------
+   LIGHT — "Daylight Ops": warm bone paper, ink, violet instrumentation
+   -------------------------------------------------------------------------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f4f1ea;
+  --bg-raised: #fbf9f4;
+  --bg-sunken: #ebe7dd;
+  --bg-glass: rgba(251, 249, 244, 0.82);
+
+  --text: #1d1726;
+  --text-dim: #5f5870;
+  --text-faint: #8d8699;
+
+  --accent: #6d28a8;
+  --accent-soft: rgba(109, 40, 168, 0.1);
+  --highlight: #c2257e;
+  --highlight-soft: rgba(194, 37, 126, 0.1);
+  --gold: #8f7427;
+  --gold-line: rgba(143, 116, 39, 0.45);
+
+  --ok: #2e7d4f;
+  --ok-soft: rgba(46, 125, 79, 0.12);
+  --warn: #a06a00;
+  --danger: #b3303a;
+  --danger-soft: rgba(179, 48, 58, 0.09);
+  --running: #6d28a8;
+
+  --line: rgba(29, 23, 38, 0.16);
+  --line-strong: rgba(29, 23, 38, 0.34);
+  --node-model: #6d28a8;
+  --node-tool: #2e7d4f;
+  --node-state: #0f6a8a;
+  --node-log: #8d8699;
+  --node-error: #b3303a;
+  --node-checkpoint: #8f7427;
+
+  --json-key: #6d28a8;
+  --json-string: #2e6b4f;
+  --json-number: #c2257e;
+  --json-bool: #a06a00;
+
+  --shadow: 0 1px 2px rgba(29, 23, 38, 0.07), 0 8px 28px rgba(29, 23, 38, 0.08);
+  --glow-accent: none;
+  --glow-highlight: none;
+  --scanlines: none;
+  --backdrop:
+    radial-gradient(60rem 38rem at 110% -10%, rgba(109, 40, 168, 0.06), transparent 60%),
+    radial-gradient(48rem 30rem at -20% 115%, rgba(194, 37, 126, 0.05), transparent 60%);
+}
+
+/* --------------------------------------------------------------------------
+   DARK — "Night Ops": graphite cockpit, calm violet telemetry
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #101116;
+  --bg-raised: #181a21;
+  --bg-sunken: #0b0c10;
+  --bg-glass: rgba(24, 26, 33, 0.82);
+
+  --text: #e3e4ec;
+  --text-dim: #9a9cae;
+  --text-faint: #5f6172;
+
+  --accent: #9d7bff;
+  --accent-soft: rgba(157, 123, 255, 0.12);
+  --highlight: #ff5ca8;
+  --highlight-soft: rgba(255, 92, 168, 0.12);
+  --gold: #cdab4e;
+  --gold-line: rgba(205, 171, 78, 0.38);
+
+  --ok: #4fc380;
+  --ok-soft: rgba(79, 195, 128, 0.12);
+  --warn: #e0a93e;
+  --danger: #ff5c66;
+  --danger-soft: rgba(255, 92, 102, 0.1);
+  --running: #9d7bff;
+
+  --line: rgba(227, 228, 236, 0.12);
+  --line-strong: rgba(227, 228, 236, 0.26);
+  --node-model: #9d7bff;
+  --node-tool: #4fc380;
+  --node-state: #54b8d4;
+  --node-log: #767889;
+  --node-error: #ff5c66;
+  --node-checkpoint: #cdab4e;
+
+  --json-key: #9d7bff;
+  --json-string: #7fd6a4;
+  --json-number: #ff5ca8;
+  --json-bool: #e0a93e;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 32px rgba(0, 0, 0, 0.45);
+  --glow-accent: 0 0 14px rgba(157, 123, 255, 0.16);
+  --glow-highlight: 0 0 14px rgba(255, 92, 168, 0.16);
+  --scanlines: none;
+  --backdrop:
+    radial-gradient(56rem 36rem at 110% -10%, rgba(157, 123, 255, 0.07), transparent 60%),
+    radial-gradient(44rem 30rem at -15% 110%, rgba(84, 184, 212, 0.05), transparent 60%);
+}
+
+/* --------------------------------------------------------------------------
+   CYBER ORCHID — the signature: black-violet console, orchid bloom,
+   magenta highlights, gold hairlines. Operator deck at 02:00.
+   -------------------------------------------------------------------------- */
+[data-theme="cyber-orchid"] {
+  color-scheme: dark;
+
+  --bg: #07030d;
+  --bg-raised: #130a22;
+  --bg-sunken: #040208;
+  --bg-glass: rgba(19, 10, 34, 0.78);
+
+  --text: #f2e9ff;
+  --text-dim: #b3a0d1;
+  --text-faint: #6f5f8d;
+
+  --accent: #c879ff;
+  --accent-soft: rgba(200, 121, 255, 0.13);
+  --highlight: #ff2fa0;
+  --highlight-soft: rgba(255, 47, 160, 0.13);
+  --gold: #d4af37;
+  --gold-line: rgba(212, 175, 55, 0.4);
+
+  --ok: #54e6a4;
+  --ok-soft: rgba(84, 230, 164, 0.12);
+  --warn: #ffc04d;
+  --danger: #ff4f6e;
+  --danger-soft: rgba(255, 79, 110, 0.12);
+  --running: #c879ff;
+
+  --line: rgba(200, 121, 255, 0.16);
+  --line-strong: rgba(200, 121, 255, 0.38);
+  --node-model: #c879ff;
+  --node-tool: #54e6a4;
+  --node-state: #5cc8ff;
+  --node-log: #8a78a8;
+  --node-error: #ff4f6e;
+  --node-checkpoint: #d4af37;
+
+  --json-key: #c879ff;
+  --json-string: #7defc0;
+  --json-number: #ff5cb0;
+  --json-bool: #ffc04d;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 12px 40px rgba(60, 8, 110, 0.35);
+  --glow-accent: 0 0 18px rgba(200, 121, 255, 0.28);
+  --glow-highlight: 0 0 18px rgba(255, 47, 160, 0.3);
+  --scanlines: repeating-linear-gradient(
+    0deg,
+    rgba(242, 233, 255, 0.022) 0 1px,
+    transparent 1px 3px
+  );
+  --backdrop:
+    radial-gradient(52rem 34rem at 85% -12%, rgba(124, 31, 207, 0.28), transparent 62%),
+    radial-gradient(44rem 30rem at -12% 30%, rgba(255, 47, 160, 0.1), transparent 58%),
+    radial-gradient(60rem 44rem at 50% 120%, rgba(64, 18, 110, 0.3), transparent 64%);
+}
