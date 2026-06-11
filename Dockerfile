@@ -1,0 +1,31 @@
+# Agent Flight Recorder — single-image deploy (backend + built UI)
+#
+#   docker compose up --build        → http://localhost:8700
+#
+# Stage 1 builds the web UI; stage 2 runs FastAPI and serves the UI as
+# static files. SQLite lives on the /data volume.
+
+FROM node:20-slim AS ui-build
+WORKDIR /build
+COPY ui/package.json ui/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY ui/ ./
+RUN npm run build
+
+FROM python:3.12-slim
+WORKDIR /app
+
+COPY backend/pyproject.toml backend/pyproject.toml
+COPY backend/app backend/app
+RUN pip install --no-cache-dir ./backend
+
+COPY --from=ui-build /build/dist /app/ui-dist
+
+ENV AFR_DB_PATH=/data/afr.db \
+    AFR_UI_DIST=/app/ui-dist \
+    AFR_PREMIUM_ENABLED=true
+
+VOLUME /data
+EXPOSE 8700
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8700"]

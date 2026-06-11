@@ -131,7 +131,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 def cmd_runs_list(args: argparse.Namespace) -> None:
     with make_client(args) as client:
-        runs = client.list_runs(status=args.status, limit=args.limit)
+        runs = client.list_runs(status=args.status, tag=args.tag, limit=args.limit)
     if args.json:
         emit_json(runs)
         return
@@ -139,7 +139,7 @@ def cmd_runs_list(args: argparse.Namespace) -> None:
         print("no runs recorded yet")
         return
     table(
-        ["ID", "NAME", "STATUS", "STARTED", "EVENTS", "CKPTS"],
+        ["ID", "NAME", "STATUS", "STARTED", "EVENTS", "CKPTS", "TAGS"],
         [
             [
                 short(r["id"]),
@@ -148,6 +148,7 @@ def cmd_runs_list(args: argparse.Namespace) -> None:
                 fmt_ts(r["created_at"]),
                 str(r.get("events_count", 0)),
                 str(r.get("checkpoints_count", 0)),
+                ",".join(r.get("tags") or []) or "-",
             ]
             for r in runs
         ],
@@ -168,6 +169,14 @@ def cmd_runs_show(args: argparse.Namespace) -> None:
     print(f"started   {fmt_ts(run['created_at'])}")
     print(f"ended     {fmt_ts(run.get('ended_at'))}")
     print(f"events    {run.get('events_count', 0)}")
+    if run.get("tags"):
+        print(f"tags      {', '.join(run['tags'])}")
+    if run.get("notes"):
+        print(f"notes     {trunc(run['notes'], 100)}")
+    if run.get("parent_run_id"):
+        print(f"forked    from {short(run['parent_run_id'])} @ {short(run.get('fork_checkpoint_id'))}")
+    if run.get("forks"):
+        print(f"forks     {', '.join(short(f['id']) for f in run['forks'])}")
     if run.get("metadata"):
         print(f"metadata  {trunc(run['metadata'], 100)}")
     if checkpoints:
@@ -186,6 +195,12 @@ def cmd_events(args: argparse.Namespace) -> None:
     with make_client(args) as client:
         run_id = resolve_run_id(client, args.run_id)
         events = client.list_events(run_id, event_type=args.type, limit=args.limit)
+    if args.errors_only:
+        events = [
+            e
+            for e in events
+            if e["event_type"] == "error" or (e.get("payload") or {}).get("status") == "error"
+        ]
     if args.json:
         emit_json(events)
         return
@@ -220,6 +235,7 @@ def cmd_replay(args: argparse.Namespace) -> None:
             mode=args.mode,
             client=client,
             handler=args.handler,
+            approved=args.approved,
         )
     if args.json:
         emit_json(result)
@@ -241,6 +257,61 @@ def cmd_replay(args: argparse.Namespace) -> None:
         print("  (dry_run: no resume handler invoked)")
     elif not args.handler:
         print("  (no handler given — pass --handler module:function to resume your agent)")
+
+
+def cmd_fork(args: argparse.Namespace) -> None:
+    with make_client(args) as client:
+        run_id = resolve_run_id(client, args.run_id)
+        checkpoint_id = resolve_checkpoint_id(client, run_id, args.from_checkpoint)
+        fork = client.fork(run_id, checkpoint_id, name=args.name)
+    if args.json:
+        emit_json(fork)
+        return
+    print(f"forked run {short(run_id)} @ {short(checkpoint_id)}")
+    print(f"  new run : {fork['id']}")
+    print(f"  name    : {fork['name']}")
+    print(f"  inspect : afr runs show {short(fork['id'])}")
+
+
+def cmd_tag(args: argparse.Namespace) -> None:
+    with make_client(args) as client:
+        run_id = resolve_run_id(client, args.run_id)
+        run = client.get_run(run_id)
+        tags = set(run.get("tags") or [])
+        if args.remove:
+            tags -= set(args.tags)
+        else:
+            tags |= set(args.tags)
+        updated = client.update_run(run_id, tags=sorted(tags))
+    if args.json:
+        emit_json(updated)
+        return
+    print(f"run {short(run_id)} tags: {', '.join(updated.get('tags') or []) or '(none)'}")
+
+
+def cmd_note(args: argparse.Namespace) -> None:
+    with make_client(args) as client:
+        run_id = resolve_run_id(client, args.run_id)
+        if args.append:
+            existing = client.get_run(run_id).get("notes") or ""
+            text = (existing + "\n" + args.text).strip()
+        else:
+            text = args.text
+        client.update_run(run_id, notes=text)
+    print(f"run {short(run_id)} notes updated")
+
+
+def cmd_license(args: argparse.Namespace) -> None:
+    with make_client(args) as client:
+        info = client.get_license()
+    if args.json:
+        emit_json(info)
+        return
+    print(f"plan: {info['plan']}")
+    for feature, enabled in info["features"].items():
+        print(f"  {'✓' if enabled else '✗'} {feature}")
+    if info.get("hint"):
+        print(f"\n{info['hint']}")
 
 
 def cmd_export(args: argparse.Namespace) -> None:
@@ -281,6 +352,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_list = runs_sub.add_parser("list", help="list runs")
     p_list.add_argument("--status", choices=["running", "completed", "failed"])
+    p_list.add_argument("--tag", help="filter by tag (premium)")
     p_list.add_argument("--limit", type=int, default=50)
     p_list.set_defaults(func=cmd_runs_list)
 
@@ -291,18 +363,50 @@ def build_parser() -> argparse.ArgumentParser:
     p_events = sub.add_parser("events", help="print a run's event timeline")
     p_events.add_argument("run_id")
     p_events.add_argument("--type", help="filter by event type")
+    p_events.add_argument("--errors-only", action="store_true", help="failed/error events only")
     p_events.add_argument("--limit", type=int, default=1000)
     p_events.set_defaults(func=cmd_events)
 
     p_replay = sub.add_parser("replay", help="replay a run from a checkpoint")
     p_replay.add_argument("run_id")
     p_replay.add_argument("--from", dest="from_checkpoint", required=True, metavar="CHECKPOINT")
-    p_replay.add_argument("--mode", default="dry_run", help="replay mode (default: dry_run)")
+    p_replay.add_argument(
+        "--mode",
+        default="dry_run",
+        choices=["dry_run", "mock_tools", "allow_safe_tools", "allow_side_effects"],
+        help="replay safety mode (default: dry_run; allow_* modes are premium)",
+    )
+    p_replay.add_argument(
+        "--approved",
+        action="store_true",
+        help="approve requires_approval tools (allow_side_effects mode only)",
+    )
     p_replay.add_argument(
         "--handler",
         help="resume handler as 'package.module:function' (invoked unless --mode dry_run)",
     )
     p_replay.set_defaults(func=cmd_replay)
+
+    p_fork = sub.add_parser("fork", help="fork a new run from a checkpoint (premium)")
+    p_fork.add_argument("run_id")
+    p_fork.add_argument("--from", dest="from_checkpoint", required=True, metavar="CHECKPOINT")
+    p_fork.add_argument("--name", help="name for the forked run")
+    p_fork.set_defaults(func=cmd_fork)
+
+    p_tag = sub.add_parser("tag", help="add/remove run tags (premium)")
+    p_tag.add_argument("run_id")
+    p_tag.add_argument("tags", nargs="+", metavar="TAG")
+    p_tag.add_argument("--remove", action="store_true", help="remove instead of add")
+    p_tag.set_defaults(func=cmd_tag)
+
+    p_note = sub.add_parser("note", help="set run notes (premium)")
+    p_note.add_argument("run_id")
+    p_note.add_argument("text")
+    p_note.add_argument("--append", action="store_true", help="append instead of replace")
+    p_note.set_defaults(func=cmd_note)
+
+    p_license = sub.add_parser("license", help="show plan and feature flags")
+    p_license.set_defaults(func=cmd_license)
 
     p_export = sub.add_parser("export", help="export a run as a JSON bundle")
     p_export.add_argument("run_id")

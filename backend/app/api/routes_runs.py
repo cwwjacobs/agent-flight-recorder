@@ -6,8 +6,18 @@ from fastapi import APIRouter, Query
 
 from app.api.errors import not_found_to_404
 from app.engine import checkpoints as ckpt_engine
+from app.engine import forks as fork_engine
 from app.engine import runs as run_engine
-from app.schemas import CheckpointIn, CheckpointOut, EndIn, RunCreate, RunOut
+from app.license import premium_feature
+from app.schemas import (
+    CheckpointIn,
+    CheckpointOut,
+    EndIn,
+    ForkIn,
+    RunCreate,
+    RunOut,
+    RunUpdate,
+)
 
 router = APIRouter(tags=["runs"])
 
@@ -20,16 +30,38 @@ def create_run(body: RunCreate) -> dict:
 @router.get("/runs", response_model=list[RunOut])
 def list_runs(
     status: str | None = None,
+    tag: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[dict]:
-    return run_engine.list_runs(status=status, limit=limit, offset=offset)
+    return run_engine.list_runs(status=status, tag=tag, limit=limit, offset=offset)
 
 
 @router.get("/runs/{run_id}", response_model=RunOut)
 def get_run(run_id: str) -> dict:
     with not_found_to_404():
-        return run_engine.get_run(run_id)
+        return run_engine.get_run_detail(run_id)
+
+
+@router.patch(
+    "/runs/{run_id}",
+    response_model=RunOut,
+    dependencies=[premium_feature("tags_notes")],
+)
+def update_run(run_id: str, body: RunUpdate) -> dict:
+    with not_found_to_404():
+        return run_engine.update_run(run_id, name=body.name, tags=body.tags, notes=body.notes)
+
+
+@router.post(
+    "/runs/{run_id}/fork",
+    response_model=RunOut,
+    status_code=201,
+    dependencies=[premium_feature("forked_replay")],
+)
+def fork_run(run_id: str, body: ForkIn) -> dict:
+    with not_found_to_404():
+        return fork_engine.fork_run(run_id, body.checkpoint_id, name=body.name)
 
 
 @router.post("/runs/{run_id}/end", response_model=RunOut)

@@ -56,6 +56,15 @@ MIGRATIONS: list[str] = [
 
     CREATE INDEX IF NOT EXISTS idx_checkpoints_run_id ON checkpoints(run_id);
     """,
+    # v2 — Premium: run tags/notes and fork lineage
+    """
+    ALTER TABLE runs ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE runs ADD COLUMN notes TEXT NOT NULL DEFAULT '';
+    ALTER TABLE runs ADD COLUMN parent_run_id TEXT;
+    ALTER TABLE runs ADD COLUMN fork_checkpoint_id TEXT;
+
+    CREATE INDEX IF NOT EXISTS idx_runs_parent ON runs(parent_run_id);
+    """,
 ]
 
 

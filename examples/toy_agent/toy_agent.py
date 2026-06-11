@@ -37,7 +37,7 @@ def ask_model(prompt: str) -> str:
 _hotel_attempts = {"count": 0}
 
 
-@afr.record_tool_call
+@afr.record_tool_call(policy="safe")  # read-only: replay may re-execute it
 def search_flights(destination: str, budget_usd: int) -> dict:
     return {
         "destination": destination,
@@ -47,7 +47,7 @@ def search_flights(destination: str, budget_usd: int) -> dict:
     }
 
 
-@afr.record_tool_call
+@afr.record_tool_call(policy="side_effecting")  # replay mocks it unless allowed
 def search_hotels(city: str, nights: int) -> dict:
     _hotel_attempts["count"] += 1
     if _hotel_attempts["count"] == 1:

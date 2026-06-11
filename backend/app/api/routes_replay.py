@@ -21,5 +21,7 @@ def state_at(run_id: str, checkpoint_id: str, reconstruct: bool = False) -> dict
 @router.post("/runs/{run_id}/replay", response_model=ReplayOut)
 def replay(run_id: str, body: ReplayIn) -> dict:
     with not_found_to_404():
-        ticket = prepare_replay(run_id, body.checkpoint_id, mode=body.mode)
+        ticket = prepare_replay(
+            run_id, body.checkpoint_id, mode=body.mode, approved=body.approved
+        )
     return ticket.to_dict()

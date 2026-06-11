@@ -1,6 +1,6 @@
 [project]
 name = "afr-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "Agent Flight Recorder backend — AI agent observability, replay debugging, and checkpoint inspection for LLM apps"
 requires-python = ">=3.10"
 dependencies = [

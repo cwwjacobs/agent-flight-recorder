@@ -6,6 +6,14 @@ export type EventType =
   | "log"
   | "error";
 
+export interface ForkRef {
+  id: string;
+  name: string;
+  status: string;
+  fork_checkpoint_id: string | null;
+  created_at: string;
+}
+
 export interface Run {
   id: string;
   name: string;
@@ -15,6 +23,19 @@ export interface Run {
   ended_at: string | null;
   events_count: number;
   checkpoints_count: number;
+  // premium
+  tags: string[];
+  notes: string;
+  parent_run_id: string | null;
+  fork_checkpoint_id: string | null;
+  forks?: ForkRef[] | null;
+}
+
+export interface License {
+  premium: boolean;
+  plan: "free" | "premium";
+  features: Record<string, boolean>;
+  hint: string | null;
 }
 
 export interface AfrEvent {
@@ -44,6 +65,11 @@ export interface StateAt {
   source: "checkpoint_table" | "reconstructed";
 }
 
+export interface ToolPlanEntry {
+  policy: string;
+  action: "allow" | "mock" | "skip" | "block" | string;
+}
+
 export interface ReplayResult {
   run_id: string;
   checkpoint_id: string;
@@ -53,4 +79,8 @@ export interface ReplayResult {
   status: string;
   message: string;
   replay_event_id: string;
+  // premium policy engine
+  tool_plan: Record<string, ToolPlanEntry>;
+  mock_results: Record<string, unknown>;
+  policy_notes: string | null;
 }

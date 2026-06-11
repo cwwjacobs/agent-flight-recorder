@@ -20,6 +20,7 @@ import traceback as tb_module
 from contextvars import ContextVar
 from typing import Any
 
+from afr import redaction
 from afr.client import AFRClient
 from afr.types import (
     EVENT_CHECKPOINT,
@@ -66,7 +67,7 @@ class RunContext:
         self, event_type: str, name: str | None = None, payload: dict | None = None
     ) -> dict:
         return self.client.append_event(
-            self.run_id, event_type, name=name, payload=jsonable(payload or {})
+            self.run_id, event_type, name=name, payload=redaction.apply(jsonable(payload or {}))
         )
 
     def log_model(
@@ -143,7 +144,9 @@ class RunContext:
 
     def checkpoint(self, label: str | None = None, state: dict | None = None) -> dict:
         return self.client.checkpoint(
-            self.run_id, label=label, state=jsonable(state) if state is not None else None
+            self.run_id,
+            label=label,
+            state=redaction.apply(jsonable(state)) if state is not None else None,
         )
 
     # -- lifecycle ------------------------------------------------------------

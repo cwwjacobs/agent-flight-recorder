@@ -88,18 +88,24 @@ def record_tool_call(
     fn: Callable | None = None,
     *,
     name: str | None = None,
+    policy: str | None = None,
     capture_args: bool = True,
     capture_result: bool = True,
     **payload_extra: Any,
 ) -> Callable:
     """Wrap a function whose call should be recorded as a `tool_call` event.
 
-    Extra keyword arguments (e.g. policy="safe" in Premium) are stored on
-    every recorded payload for this tool.
+    `policy` declares the tool's replay-safety class ("safe",
+    "side_effecting", "mock_by_default", "requires_approval") and is stored
+    on every recorded payload; the premium replay engine enforces it.
+    Unlabelled tools are treated as side_effecting. Extra keyword arguments
+    are stored on the payload as-is.
     """
 
     def _decorate(func: Callable) -> Callable:
         tool_name = name or func.__name__
+        if policy is not None:
+            payload_extra["policy"] = policy
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:

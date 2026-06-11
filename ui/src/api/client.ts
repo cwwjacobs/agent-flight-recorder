@@ -1,4 +1,4 @@
-import type { AfrEvent, Checkpoint, ReplayResult, Run, StateAt } from "./types";
+import type { AfrEvent, Checkpoint, License, ReplayResult, Run, StateAt } from "./types";
 
 const BASE = "/api";
 
@@ -29,9 +29,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listRuns: (params?: { status?: string }) => {
+  listRuns: (params?: { status?: string; tag?: string }) => {
     const qs = new URLSearchParams({ limit: "200" });
     if (params?.status) qs.set("status", params.status);
+    if (params?.tag) qs.set("tag", params.tag);
     return request<Run[]>(`/runs?${qs}`);
   },
   getRun: (runId: string) => request<Run>(`/runs/${runId}`),
@@ -40,11 +41,20 @@ export const api = {
   getCheckpoints: (runId: string) => request<Checkpoint[]>(`/runs/${runId}/checkpoints`),
   getStateAt: (runId: string, checkpointId: string) =>
     request<StateAt>(`/runs/${runId}/state-at/${checkpointId}`),
-  replay: (runId: string, checkpointId: string, mode: string) =>
+  replay: (runId: string, checkpointId: string, mode: string, approved = false) =>
     request<ReplayResult>(`/runs/${runId}/replay`, {
       method: "POST",
-      body: JSON.stringify({ checkpoint_id: checkpointId, mode }),
+      body: JSON.stringify({ checkpoint_id: checkpointId, mode, approved }),
     }),
+  // premium
+  getLicense: () => request<License>(`/license`),
+  forkRun: (runId: string, checkpointId: string, name?: string) =>
+    request<Run>(`/runs/${runId}/fork`, {
+      method: "POST",
+      body: JSON.stringify({ checkpoint_id: checkpointId, name: name ?? null }),
+    }),
+  updateRun: (runId: string, patch: { name?: string; tags?: string[]; notes?: string }) =>
+    request<Run>(`/runs/${runId}`, { method: "PATCH", body: JSON.stringify(patch) }),
 };
 
 export { ApiError };

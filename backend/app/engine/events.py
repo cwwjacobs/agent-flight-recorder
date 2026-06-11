@@ -6,6 +6,7 @@ from typing import Any
 
 from app.engine.runs import get_run
 from app.engine.util import new_id, utcnow
+from app.redaction import apply_redaction
 from app.storage import repo
 
 
@@ -18,8 +19,9 @@ def append_event(
 ) -> dict:
     """Append one event to a run's timeline.
 
-    Appends are accepted even after a run has ended (late buffered events and
-    replay bookkeeping are both legitimate post-end writes).
+    Payloads pass through redaction before they touch the database. Appends
+    are accepted even after a run has ended (late buffered events and replay
+    bookkeeping are both legitimate post-end writes).
     """
     get_run(run_id)  # 404 if missing
     return repo.insert_event(
@@ -27,7 +29,7 @@ def append_event(
         run_id=run_id,
         event_type=event_type,
         name=name,
-        payload=payload or {},
+        payload=apply_redaction(payload or {}),
         created_at=created_at or utcnow(),
     )
 

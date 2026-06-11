@@ -9,11 +9,19 @@ usually enough.
 | Command | What it does |
 | --- | --- |
 | `afr init` | write `.afr/config.json` (api_url) in the cwd |
-| `afr runs list [--status S] [--limit N]` | run manifest |
-| `afr runs show <run_id>` | run details + checkpoint table |
-| `afr events <run_id> [--type T] [--limit N]` | timeline (✗ marks failures) |
-| `afr replay <run_id> --from <ckpt> [--mode M] [--handler module:fn]` | request replay; invoke resume handler unless `dry_run` |
+| `afr runs list [--status S] [--tag T] [--limit N]` | run manifest |
+| `afr runs show <run_id>` | run details + checkpoints + fork lineage |
+| `afr events <run_id> [--type T] [--errors-only] [--limit N]` | timeline (✗ marks failures) |
+| `afr replay <run_id> --from <ckpt> [--mode M] [--approved] [--handler module:fn]` | request replay; invoke resume handler unless `dry_run` |
 | `afr export <run_id> [-o FILE]` | portable JSON bundle (run + events + checkpoints) |
+| `afr fork <run_id> --from <ckpt> [--name N]` | fork a new run from a checkpoint (premium) |
+| `afr tag <run_id> TAG... [--remove]` | add/remove run tags (premium) |
+| `afr note <run_id> TEXT [--append]` | set run notes (premium) |
+| `afr license` | show plan + feature flags |
+
+Replay modes: `dry_run` (default) · `mock_tools` · `allow_safe_tools`† ·
+`allow_side_effects`† († premium; `--approved` unblocks `requires_approval`
+tools in `allow_side_effects` mode).
 
 ## Examples
 

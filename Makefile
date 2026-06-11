@@ -23,5 +23,8 @@ test:           ## run the python test suite
 demo:           ## record a toy agent run (backend must be up)
 	$(PY) examples/toy_agent/toy_agent.py
 
+docker-up:      ## build + run backend & UI in docker (persistent volume)
+	docker compose up --build
+
 clean:
 	rm -rf .venv ui/node_modules ui/dist afr.db afr.db-wal afr.db-shm

@@ -31,7 +31,12 @@ _handlers: dict[str, ResumeHandler] = {}
 
 @dataclass
 class ReplayContext:
-    """Everything a resume handler needs to pick up where the run left off."""
+    """Everything a resume handler needs to pick up where the run left off.
+
+    Premium backends attach a per-tool safety plan (tool_plan) and recorded
+    results for mocked tools (mock_results); the helpers below stay safe when
+    talking to a free backend by treating unknown tools as mocked.
+    """
 
     run_id: str
     checkpoint_id: str
@@ -39,6 +44,23 @@ class ReplayContext:
     mode: str
     state: dict[str, Any]
     ticket: dict[str, Any] = field(default_factory=dict)
+    tool_plan: dict[str, dict[str, str]] = field(default_factory=dict)
+    mock_results: dict[str, Any] = field(default_factory=dict)
+
+    def action_for(self, tool: str) -> str:
+        """'allow' | 'mock' | 'skip' | 'block' for a tool under this replay."""
+        entry = self.tool_plan.get(tool)
+        if entry and "action" in entry:
+            return entry["action"]
+        # no plan (free backend / unrecorded tool): never execute by accident
+        return "skip" if self.mode == "dry_run" else "mock"
+
+    def should_execute(self, tool: str) -> bool:
+        return self.action_for(tool) == "allow"
+
+    def mock_result(self, tool: str, default: Any = None) -> Any:
+        """Last recorded successful result for a mocked tool, if any."""
+        return self.mock_results.get(tool, default)
 
 
 def register_resume_handler(
@@ -81,6 +103,8 @@ def build_replay_context(ticket: dict[str, Any]) -> ReplayContext:
         mode=ticket.get("mode", MODE_DRY_RUN),
         state=ticket.get("state") or {},
         ticket=ticket,
+        tool_plan=ticket.get("tool_plan") or {},
+        mock_results=ticket.get("mock_results") or {},
     )
 
 

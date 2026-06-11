@@ -14,12 +14,13 @@ const EMPTY_GLYPH = `┌──────────────────�
 export default function RunListPage() {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const load = (status: string) => {
+  const load = (status: string, tag: string) => {
     api
-      .listRuns(status ? { status } : undefined)
+      .listRuns({ status: status || undefined, tag: tag || undefined })
       .then((r) => {
         setRuns(r);
         setError(null);
@@ -28,10 +29,10 @@ export default function RunListPage() {
   };
 
   useEffect(() => {
-    load(statusFilter);
-    const interval = setInterval(() => load(statusFilter), 5000);
+    load(statusFilter, tagFilter);
+    const interval = setInterval(() => load(statusFilter, tagFilter), 5000);
     return () => clearInterval(interval);
-  }, [statusFilter]);
+  }, [statusFilter, tagFilter]);
 
   return (
     <main>
@@ -56,6 +57,13 @@ export default function RunListPage() {
           <option value="completed">completed</option>
           <option value="failed">failed</option>
         </select>
+        <input
+          className="control"
+          placeholder="tag…"
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+          style={{ width: 130 }}
+        />
       </div>
 
       <section className="panel panel-ticks">
@@ -88,7 +96,15 @@ export default function RunListPage() {
                   style={{ "--i": i } as CSSProperties}
                   onClick={() => navigate(`/runs/${run.id}`)}
                 >
-                  <td className="run-name">{run.name}</td>
+                  <td className="run-name">
+                    {run.parent_run_id && <span title="forked run">⑂ </span>}
+                    {run.name}
+                    {run.tags?.map((t) => (
+                      <span key={t} className="tag tag-mini">
+                        {t}
+                      </span>
+                    ))}
+                  </td>
                   <td className="run-id">{shortId(run.id)}</td>
                   <td>
                     <StatusPill status={run.status} />

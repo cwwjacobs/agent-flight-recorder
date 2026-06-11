@@ -28,6 +28,14 @@ class RunCreate(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ForkRef(BaseModel):
+    id: str
+    name: str
+    status: str
+    fork_checkpoint_id: str | None = None
+    created_at: str
+
+
 class RunOut(BaseModel):
     id: str
     name: str
@@ -37,6 +45,23 @@ class RunOut(BaseModel):
     ended_at: str | None = None
     events_count: int = 0
     checkpoints_count: int = 0
+    # premium fields (always present, empty in free mode)
+    tags: list[str] = Field(default_factory=list)
+    notes: str = ""
+    parent_run_id: str | None = None
+    fork_checkpoint_id: str | None = None
+    forks: list[ForkRef] | None = None  # populated on GET /runs/{id} only
+
+
+class RunUpdate(BaseModel):
+    name: str | None = None
+    tags: list[str] | None = None
+    notes: str | None = None
+
+
+class ForkIn(BaseModel):
+    checkpoint_id: str
+    name: str | None = None
 
 
 class EndIn(BaseModel):
@@ -96,12 +121,17 @@ class StateAtOut(BaseModel):
 # replay
 
 
+ReplayMode = Literal["dry_run", "mock_tools", "allow_safe_tools", "allow_side_effects"]
+
+
 class ReplayIn(BaseModel):
     checkpoint_id: str
-    # MVP contract: "dry_run" returns the reconstructed state without invoking
-    # any handler. Other modes are passed through to the client-side resume
-    # handler. Premium tightens this into a validated policy engine.
-    mode: str = "dry_run"
+    # dry_run and mock_tools are free; allow_safe_tools / allow_side_effects
+    # require premium. The default executes nothing.
+    mode: ReplayMode = "dry_run"
+    # required to unblock tools whose policy is requires_approval, and only
+    # meaningful in allow_side_effects mode
+    approved: bool = False
 
 
 class ReplayOut(BaseModel):
@@ -113,3 +143,7 @@ class ReplayOut(BaseModel):
     status: str
     message: str
     replay_event_id: str
+    # premium policy engine output
+    tool_plan: dict[str, dict[str, str]] = Field(default_factory=dict)
+    mock_results: dict[str, Any] = Field(default_factory=dict)
+    policy_notes: str | None = None

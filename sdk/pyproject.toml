@@ -1,6 +1,6 @@
 [project]
 name = "afr-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Agent Flight Recorder SDK — record model calls, tool calls, state, and checkpoints from your agent"
 requires-python = ">=3.10"
 dependencies = [

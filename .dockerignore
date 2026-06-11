@@ -1,0 +1,15 @@
+.git
+.venv
+**/__pycache__
+**/*.egg-info
+ui/node_modules
+ui/dist
+dist
+*.db
+*.db-wal
+*.db-shm
+.afr
+.pytest_cache
+docs
+examples
+backend/tests

@@ -1,0 +1,16 @@
+services:
+  afr:
+    build: .
+    image: agent-flight-recorder:latest
+    ports:
+      - "8700:8700"
+    environment:
+      # license boundary placeholder — set false to see the free tier
+      AFR_PREMIUM_ENABLED: ${AFR_PREMIUM_ENABLED:-true}
+      AFR_REDACTION_ENABLED: ${AFR_REDACTION_ENABLED:-true}
+    volumes:
+      - afr-data:/data
+    restart: unless-stopped
+
+volumes:
+  afr-data:

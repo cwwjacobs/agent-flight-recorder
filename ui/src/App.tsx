@@ -1,8 +1,21 @@
 import { HashRouter, Link, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "./themes/ThemeContext";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { LicenseProvider, useLicense } from "./license/LicenseContext";
 import RunListPage from "./pages/RunListPage";
 import RunDetailPage from "./pages/RunDetailPage";
+
+function PlanChip() {
+  const license = useLicense();
+  return (
+    <span
+      className={`plan-chip ${license.premium ? "premium" : ""}`}
+      title={license.hint ?? "all premium features enabled"}
+    >
+      {license.premium ? "◆ premium" : "free"}
+    </span>
+  );
+}
 
 function BrandMark() {
   return (
@@ -16,31 +29,34 @@ function BrandMark() {
 export default function App() {
   return (
     <ThemeProvider>
-      <HashRouter>
-        <div className="app">
-          <header className="topbar">
-            <Link to="/" className="brand">
-              <span className="brand-mark">
-                <BrandMark />
-              </span>
-              <span className="brand-text">
-                <span className="brand-title">
-                  Agent <em>Flight Recorder</em>
+      <LicenseProvider>
+        <HashRouter>
+          <div className="app">
+            <header className="topbar">
+              <Link to="/" className="brand">
+                <span className="brand-mark">
+                  <BrandMark />
                 </span>
-                <span className="brand-sub">observability · replay · checkpoints</span>
-              </span>
-            </Link>
-            <span className="rec-dot" title="recording" />
-            <span className="topbar-spacer" />
-            <ThemeToggle />
-          </header>
+                <span className="brand-text">
+                  <span className="brand-title">
+                    Agent <em>Flight Recorder</em>
+                  </span>
+                  <span className="brand-sub">observability · replay · checkpoints</span>
+                </span>
+              </Link>
+              <span className="rec-dot" title="recording" />
+              <PlanChip />
+              <span className="topbar-spacer" />
+              <ThemeToggle />
+            </header>
 
-          <Routes>
-            <Route path="/" element={<RunListPage />} />
-            <Route path="/runs/:runId" element={<RunDetailPage />} />
-          </Routes>
-        </div>
-      </HashRouter>
+            <Routes>
+              <Route path="/" element={<RunListPage />} />
+              <Route path="/runs/:runId" element={<RunDetailPage />} />
+            </Routes>
+          </div>
+        </HashRouter>
+      </LicenseProvider>
     </ThemeProvider>
   );
 }

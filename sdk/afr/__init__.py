@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from afr import redaction
 from afr.client import AFRAPIError, AFRClient
 from afr.context import NoActiveRun, RunContext, current_run, require_run, start_run
 from afr.hooks import (
@@ -29,10 +30,10 @@ from afr.hooks import (
     register_resume_handler,
     replay,
 )
-from afr.types import EVENT_TYPES, REPLAY_MODES, jsonable
+from afr.types import EVENT_TYPES, REPLAY_MODES, TOOL_POLICIES, jsonable
 from afr.wrappers import record_model_call, record_tool_call
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "AFRClient",
@@ -60,8 +61,10 @@ __all__ = [
     "load_callable",
     "replay",
     "jsonable",
+    "redaction",
     "EVENT_TYPES",
     "REPLAY_MODES",
+    "TOOL_POLICIES",
 ]
 
 

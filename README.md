@@ -128,6 +128,66 @@ examples/  toy_agent — runnable offline demo agent
 docs/      quickstart, SDK, CLI, API, replay contract, data model
 ```
 
+---
+
+# ◆ AFR Premium
+
+**Stop reading diffs in your head. Stop re-running side effects to debug.**
+Premium turns the recorder into a debugger:
+
+> ### ⑂ Forked replay
+> Branch a brand-new run off any checkpoint. Try the fix, keep the evidence.
+> Parent ↔ fork lineage is recorded and browsable in the UI.
+>
+> ### 🛡 Replay safety policies
+> Tag tools `safe` / `side_effecting` / `mock_by_default` /
+> `requires_approval`. Replay in `dry_run`, `mock_tools`,
+> `allow_safe_tools`, or `allow_side_effects` — **side-effecting tools are
+> mocked unless you explicitly allow them**, with recorded results served as
+> mocks and approval gates on the dangerous ones.
+>
+> ### ⇄ JSON state diff
+> Pick any two checkpoints or snapshots, get a structural diff:
+> added / removed / changed, path by path.
+>
+> ### ⛨ Redaction
+> `api_key`, `authorization`, `password`, `secret`, `token`, … scrubbed at
+> ingest by default (yes, even in free mode — secrets aren't a feature tier).
+> Premium adds custom redactor hooks (backend + SDK) and the UI marks every
+> redacted field explicitly.
+>
+> ### 🏷 Tags, notes, filters
+> Tag runs, annotate incidents, filter the timeline by type or failures-only.
+>
+> ### ⌬ MCP server stub
+> An MCP-shaped tool surface (`afr_list_runs`, `afr_replay`, `afr_fork_run`, …)
+> so LLM clients can inspect and replay runs. Stub today, cleanly structured
+> to become real.
+
+### Enable it
+
+```bash
+AFR_PREMIUM_ENABLED=true make serve        # license placeholder — no billing yet
+```
+
+| Capability | Free | Premium |
+| --- | :-: | :-: |
+| Recorder, timeline, checkpoints, state-at, CLI | ✓ | ✓ |
+| Replay (`dry_run`, `mock_tools`) | ✓ | ✓ |
+| Default secret redaction | ✓ | ✓ |
+| Policy modes (`allow_safe_tools`, `allow_side_effects`) | — | ✓ |
+| Forked replay + lineage | — | ✓ |
+| State diff viewer | — | ✓ |
+| Tags, notes, custom redactors, MCP stub | — | ✓ |
+
+## Docker
+
+```bash
+docker compose up --build      # backend + UI + persistent SQLite volume
+```
+
+See [docs/docker.md](docs/docker.md).
+
 ## Docs
 
 | Doc | What's in it |
@@ -138,16 +198,19 @@ docs/      quickstart, SDK, CLI, API, replay contract, data model
 | [docs/api.md](docs/api.md) | HTTP API reference |
 | [docs/replay.md](docs/replay.md) | the replay contract |
 | [docs/data-model.md](docs/data-model.md) | tables, event types, state folding |
+| [docs/premium.md](docs/premium.md) | premium features in depth |
+| [docs/docker.md](docs/docker.md) | container deploy |
+| [docs/mcp.md](docs/mcp.md) | MCP stub |
 
 ## Tests
 
 ```bash
-make test    # storage, state reconstruction, API smoke, SDK smoke
+make test    # 54 tests: storage, state reconstruction, API/SDK smoke,
+             # redaction, replay policies, forking, license gating, MCP
 ```
 
-## Status
+## Repo history
 
-This is the MVP: recorder, timeline, checkpoints, state inspection, replay
-contract, CLI, UI, docs, tests. Premium tier (state diffs, forked replay,
-replay safety policies, redaction, MCP server, Docker) ships on top of it —
-see the repo history.
+The MVP is preserved intact: commit `mvp-agent-flight-recorder` and the
+frozen snapshot in `dist/mvp-agent-flight-recorder/`. Premium is built on
+top without rewriting it.

@@ -33,6 +33,20 @@ MODE_ALLOW_SIDE_EFFECTS = "allow_side_effects"
 
 REPLAY_MODES = (MODE_DRY_RUN, MODE_MOCK_TOOLS, MODE_ALLOW_SAFE_TOOLS, MODE_ALLOW_SIDE_EFFECTS)
 
+# Tool replay policies (recorded on tool_call payloads, enforced by the
+# premium policy engine during replay)
+POLICY_SAFE = "safe"
+POLICY_SIDE_EFFECTING = "side_effecting"
+POLICY_MOCK_BY_DEFAULT = "mock_by_default"
+POLICY_REQUIRES_APPROVAL = "requires_approval"
+
+TOOL_POLICIES = (
+    POLICY_SAFE,
+    POLICY_SIDE_EFFECTING,
+    POLICY_MOCK_BY_DEFAULT,
+    POLICY_REQUIRES_APPROVAL,
+)
+
 
 def resolve_api_url(api_url: str | None = None) -> str:
     return api_url or os.environ.get("AFR_API_URL") or DEFAULT_API_URL

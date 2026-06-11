@@ -29,6 +29,7 @@ def _loads(text: str | None, fallback: Any) -> Any:
 def _run_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     d = dict(row)
     d["metadata"] = _loads(d.get("metadata"), {})
+    d["tags"] = _loads(d.get("tags"), [])
     return d
 
 
@@ -56,11 +57,30 @@ _RUN_COUNTS = """
 # runs
 
 
-def insert_run(run_id: str, name: str, status: str, metadata: dict, created_at: str) -> dict:
+def insert_run(
+    run_id: str,
+    name: str,
+    status: str,
+    metadata: dict,
+    created_at: str,
+    parent_run_id: str | None = None,
+    fork_checkpoint_id: str | None = None,
+    tags: list[str] | None = None,
+) -> dict:
     with connect() as conn:
         conn.execute(
-            "INSERT INTO runs (id, name, status, metadata, created_at) VALUES (?, ?, ?, ?, ?)",
-            (run_id, name, status, json.dumps(metadata), created_at),
+            "INSERT INTO runs (id, name, status, metadata, created_at, parent_run_id,"
+            " fork_checkpoint_id, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                run_id,
+                name,
+                status,
+                json.dumps(metadata),
+                created_at,
+                parent_run_id,
+                fork_checkpoint_id,
+                json.dumps(tags or []),
+            ),
         )
         conn.commit()
     return get_run(run_id)  # type: ignore[return-value]
@@ -76,18 +96,60 @@ def get_run(run_id: str) -> dict | None:
 
 def list_runs(
     status: str | None = None,
+    tag: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
     sql = f"SELECT r.*, {_RUN_COUNTS} FROM runs r"
+    where: list[str] = []
     params: list[Any] = []
     if status:
-        sql += " WHERE r.status = ?"
+        where.append("r.status = ?")
         params.append(status)
+    if tag:
+        where.append("EXISTS (SELECT 1 FROM json_each(r.tags) je WHERE je.value = ?)")
+        params.append(tag)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY r.created_at DESC, r.id LIMIT ? OFFSET ?"
     params += [limit, offset]
     with connect() as conn:
         rows = conn.execute(sql, params).fetchall()
+    return [_run_row_to_dict(r) for r in rows]
+
+
+def update_run_fields(
+    run_id: str,
+    name: str | None = None,
+    tags: list[str] | None = None,
+    notes: str | None = None,
+) -> dict | None:
+    sets: list[str] = []
+    params: list[Any] = []
+    if name is not None:
+        sets.append("name = ?")
+        params.append(name)
+    if tags is not None:
+        sets.append("tags = ?")
+        params.append(json.dumps(tags))
+    if notes is not None:
+        sets.append("notes = ?")
+        params.append(notes)
+    if sets:
+        params.append(run_id)
+        with connect() as conn:
+            conn.execute(f"UPDATE runs SET {', '.join(sets)} WHERE id = ?", params)
+            conn.commit()
+    return get_run(run_id)
+
+
+def list_forks(parent_run_id: str) -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT r.*, {_RUN_COUNTS} FROM runs r WHERE r.parent_run_id = ?"
+            " ORDER BY r.created_at",
+            (parent_run_id,),
+        ).fetchall()
     return [_run_row_to_dict(r) for r in rows]
 
 

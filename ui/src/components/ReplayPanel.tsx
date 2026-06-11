@@ -1,12 +1,22 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import type { Checkpoint, ReplayResult } from "../api/types";
+import { usePremium } from "../license/LicenseContext";
 import { shortId } from "../util/format";
 
 const MODES = [
-  { id: "dry_run", label: "dry_run — ticket only, nothing executes" },
-  { id: "mock_tools", label: "mock_tools — handler runs, tools mocked" },
+  { id: "dry_run", label: "dry_run — ticket only, nothing executes", premium: false },
+  { id: "mock_tools", label: "mock_tools — handler runs, all tools mocked", premium: false },
+  { id: "allow_safe_tools", label: "allow_safe_tools — safe tools execute", premium: true },
+  { id: "allow_side_effects", label: "allow_side_effects — full execution", premium: true },
 ];
+
+const ACTION_CLASS: Record<string, string> = {
+  allow: "plan-allow",
+  mock: "plan-mock",
+  skip: "plan-skip",
+  block: "plan-block",
+};
 
 export function ReplayPanel({
   runId,
@@ -19,7 +29,9 @@ export function ReplayPanel({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const premium = usePremium();
   const [mode, setMode] = useState("dry_run");
+  const [approved, setApproved] = useState(false);
   const [result, setResult] = useState<ReplayResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,13 +42,15 @@ export function ReplayPanel({
     setError(null);
     setResult(null);
     try {
-      setResult(await api.replay(runId, selectedId, mode));
+      setResult(await api.replay(runId, selectedId, mode, approved));
     } catch (e) {
       setError(String(e));
     } finally {
       setBusy(false);
     }
   };
+
+  const plan = result ? Object.entries(result.tool_plan) : [];
 
   return (
     <section className="panel panel-ticks">
@@ -66,7 +80,7 @@ export function ReplayPanel({
         </div>
         <div className="field-row">
           <label className="microlabel" htmlFor="replay-mode">
-            mode
+            safety mode
           </label>
           <select
             id="replay-mode"
@@ -75,12 +89,25 @@ export function ReplayPanel({
             onChange={(e) => setMode(e.target.value)}
           >
             {MODES.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
+              <option key={m.id} value={m.id} disabled={m.premium && !premium}>
+                {m.premium && !premium ? `🔒 ${m.label}` : m.label}
               </option>
             ))}
           </select>
         </div>
+
+        {mode === "allow_side_effects" && (
+          <label className="approve-row">
+            <input
+              type="checkbox"
+              checked={approved}
+              onChange={(e) => setApproved(e.target.checked)}
+            />
+            <span>
+              approve <code>requires_approval</code> tools (otherwise they are blocked)
+            </span>
+          </label>
+        )}
 
         <button className="btn btn-primary" disabled={!selectedId || busy} onClick={replay}>
           {busy ? "requesting…" : "▶ request replay ticket"}
@@ -96,8 +123,34 @@ export function ReplayPanel({
             <div>
               status: <span className="ok">{result.status}</span> · mode: {result.mode}
             </div>
-            <div style={{ marginTop: 6, color: "var(--text-dim)" }}>{result.message}</div>
-            <div style={{ marginTop: 6 }} className="microlabel">
+            {plan.length > 0 && (
+              <table className="plan-table">
+                <thead>
+                  <tr>
+                    <th>tool</th>
+                    <th>policy</th>
+                    <th>action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.map(([tool, entry]) => (
+                    <tr key={tool}>
+                      <td>{tool}</td>
+                      <td>{entry.policy}</td>
+                      <td>
+                        <span className={`plan-action ${ACTION_CLASS[entry.action] ?? ""}`}>
+                          {entry.action}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {result.policy_notes && (
+              <div style={{ marginTop: 6, color: "var(--text-dim)" }}>{result.policy_notes}</div>
+            )}
+            <div style={{ marginTop: 8 }} className="microlabel">
               resume via SDK handler or:
             </div>
             <div style={{ marginTop: 4, wordBreak: "break-all" }}>

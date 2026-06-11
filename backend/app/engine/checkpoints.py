@@ -19,6 +19,7 @@ from app.engine.events import append_event
 from app.engine.runs import get_run
 from app.engine.state import reconstruct_state
 from app.engine.util import new_id, utcnow
+from app.redaction import apply_redaction
 from app.storage import repo
 
 
@@ -35,6 +36,7 @@ def create_checkpoint(
     checkpoint_id = new_id()
 
     if state is not None:
+        state = apply_redaction(state)
         append_event(
             run_id,
             "state_snapshot",

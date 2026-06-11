@@ -69,11 +69,17 @@ class AFRClient:
         return self._request("GET", f"/runs/{run_id}")
 
     def list_runs(
-        self, status: str | None = None, limit: int = 50, offset: int = 0
+        self,
+        status: str | None = None,
+        tag: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[dict]:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
+        if tag:
+            params["tag"] = tag
         return self._request("GET", "/runs", params=params)
 
     def end_run(self, run_id: str, status: str = "completed") -> dict:
@@ -127,6 +133,35 @@ class AFRClient:
     def replay(self, run_id: str, checkpoint_id: str, mode: str = "dry_run", **extra: Any) -> dict:
         body = {"checkpoint_id": checkpoint_id, "mode": mode, **extra}
         return self._request("POST", f"/runs/{run_id}/replay", json=body)
+
+    # -- premium ----------------------------------------------------------------
+
+    def fork(self, run_id: str, checkpoint_id: str, name: str | None = None) -> dict:
+        """Fork a new run from a checkpoint (premium)."""
+        return self._request(
+            "POST", f"/runs/{run_id}/fork", json={"checkpoint_id": checkpoint_id, "name": name}
+        )
+
+    def update_run(
+        self,
+        run_id: str,
+        *,
+        name: str | None = None,
+        tags: list[str] | None = None,
+        notes: str | None = None,
+    ) -> dict:
+        """Update run name/tags/notes (premium)."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if tags is not None:
+            body["tags"] = tags
+        if notes is not None:
+            body["notes"] = notes
+        return self._request("PATCH", f"/runs/{run_id}", json=body)
+
+    def get_license(self) -> dict:
+        return self._request("GET", "/license")
 
     # -- export ---------------------------------------------------------------
 
