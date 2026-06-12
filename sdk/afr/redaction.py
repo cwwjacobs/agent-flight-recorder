@@ -23,6 +23,8 @@ from typing import Any, Callable
 
 REDACTED_MARKER = "[REDACTED]"
 
+# Substring needles; bare "token" is deliberately absent so usage telemetry
+# (prompt_tokens, total_tokens, token_count) survives. Mirrors the backend.
 DEFAULT_REDACT_KEYS: tuple[str, ...] = (
     "api_key",
     "apikey",
@@ -30,11 +32,25 @@ DEFAULT_REDACT_KEYS: tuple[str, ...] = (
     "password",
     "passwd",
     "secret",
-    "token",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "session_token",
+    "auth_token",
+    "bearer_token",
+    "api_token",
     "private_key",
     "credential",
     "session_id",
     "cookie",
+)
+
+# Exact-match keys that are secrets when they appear verbatim.
+DEFAULT_REDACT_EXACT: tuple[str, ...] = (
+    "token",
+    "bearer",
+    "auth",
+    "jwt",
 )
 
 Redactor = Callable[[dict], dict]
@@ -59,10 +75,15 @@ def enable_default_redaction(enabled: bool = True) -> None:
     _default_enabled = enabled
 
 
+def _key_is_sensitive(key: str, needles: tuple[str, ...]) -> bool:
+    lowered = str(key).lower()
+    return lowered in DEFAULT_REDACT_EXACT or any(n in lowered for n in needles)
+
+
 def default_redact(value: Any, needles: tuple[str, ...] = DEFAULT_REDACT_KEYS) -> Any:
     if isinstance(value, dict):
         return {
-            k: REDACTED_MARKER if any(n in str(k).lower() for n in needles) else default_redact(v, needles)
+            k: REDACTED_MARKER if _key_is_sensitive(k, needles) else default_redact(v, needles)
             for k, v in value.items()
         }
     if isinstance(value, list):

@@ -36,6 +36,18 @@ def resume(ctx: afr.ReplayContext) -> dict:
     print(f"[resume] already done: {sorted(booked)}")
     print(f"[resume] would continue with: {remaining or 'nothing — run was complete'}")
 
+    # ctx.call_tool honors the server's replay plan, so this handler never
+    # re-executes a side-effecting tool by accident: under mock_tools the
+    # recorded result (or the default) comes back without running anything.
+    if "hotel" in remaining:
+        from examples.toy_agent.toy_agent import search_hotels
+
+        hotel = ctx.call_tool(
+            "search_hotels", search_hotels, "Tokyo", nights=3,
+            default={"hotel": "Hotel Mocked", "nights": 3},
+        )
+        print(f"[resume] search_hotels -> {ctx.action_for('search_hotels')}: {hotel}")
+
     # A real handler would rebuild your agent from ctx.state and keep going,
     # typically recording into a fresh run (or a Premium fork of this one).
     return {"resumed_from": ctx.label, "remaining_steps": remaining}

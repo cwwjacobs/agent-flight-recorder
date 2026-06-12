@@ -19,7 +19,8 @@ wired yet (`backend/app/mcp/server.py` documents exactly where it goes).
 
 ## HTTP stub
 
-With `AFR_PREMIUM_ENABLED=true`:
+With `AFR_PREMIUM_ENABLED=true` (and `Authorization: Bearer <token>` if the
+server sets `AFR_API_TOKEN` — `/mcp/*` is a protected route):
 
 ```bash
 curl http://127.0.0.1:8700/mcp/tools

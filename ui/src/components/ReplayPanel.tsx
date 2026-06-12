@@ -5,10 +5,30 @@ import { usePremium } from "../license/LicenseContext";
 import { shortId } from "../util/format";
 
 const MODES = [
-  { id: "dry_run", label: "dry_run — ticket only, nothing executes", premium: false },
-  { id: "mock_tools", label: "mock_tools — handler runs, all tools mocked", premium: false },
-  { id: "allow_safe_tools", label: "allow_safe_tools — safe tools execute", premium: true },
-  { id: "allow_side_effects", label: "allow_side_effects — full execution", premium: true },
+  {
+    id: "dry_run",
+    label: "dry_run — plan only",
+    help: "Builds the replay plan and reconstructs state. Nothing runs — not even your resume handler.",
+    premium: false,
+  },
+  {
+    id: "mock_tools",
+    label: "mock_tools — everything mocked",
+    help: "Your resume handler runs, but every tool returns its recorded result instead of executing. The safest way to actually step through a failure.",
+    premium: false,
+  },
+  {
+    id: "allow_safe_tools",
+    label: "allow_safe_tools — read-only tools execute",
+    help: "Tools recorded as policy \"safe\" (read-only) really execute; everything else is mocked.",
+    premium: true,
+  },
+  {
+    id: "allow_side_effects",
+    label: "allow_side_effects — side effects execute",
+    help: "Side-effecting tools really execute. Tools marked requires_approval stay blocked unless you approve them below.",
+    premium: true,
+  },
 ];
 
 const ACTION_CLASS: Record<string, string> = {
@@ -53,9 +73,9 @@ export function ReplayPanel({
   const plan = result ? Object.entries(result.tool_plan) : [];
 
   return (
-    <section className="panel panel-ticks">
+    <section className="panel panel-ticks" id="replay-panel">
       <div className="panel-head">
-        <span className="panel-title">Replay</span>
+        <span className="panel-title">Replay Plan</span>
       </div>
       <div className="panel-body">
         <div className="field-row">
@@ -96,6 +116,15 @@ export function ReplayPanel({
           </select>
         </div>
 
+        <p className="mode-help">{MODES.find((m) => m.id === mode)?.help}</p>
+
+        {mode === "allow_side_effects" && (
+          <div className="warn-banner">
+            ⚠ This mode re-executes real side effects (charges, writes, emails) when your
+            resume handler runs. Use it only when that is exactly what you want.
+          </div>
+        )}
+
         {mode === "allow_side_effects" && (
           <label className="approve-row">
             <input
@@ -110,8 +139,13 @@ export function ReplayPanel({
         )}
 
         <button className="btn btn-primary" disabled={!selectedId || busy} onClick={replay}>
-          {busy ? "requesting…" : "▶ request replay ticket"}
+          {busy ? "preparing…" : "▶ Prepare replay plan"}
         </button>
+        {!selectedId && (
+          <p className="mode-help" style={{ marginTop: 8 }}>
+            select a checkpoint above (or press “replay from here” on one) to enable this
+          </p>
+        )}
 
         {error && (
           <div className="banner-error" style={{ marginTop: 12 }}>
@@ -123,6 +157,7 @@ export function ReplayPanel({
             <div>
               status: <span className="ok">{result.status}</span> · mode: {result.mode}
             </div>
+            {plan.length > 0 && <div className="microlabel" style={{ marginTop: 8 }}>tool safety plan</div>}
             {plan.length > 0 && (
               <table className="plan-table">
                 <thead>
@@ -147,11 +182,21 @@ export function ReplayPanel({
                 </tbody>
               </table>
             )}
+            {plan.length > 0 && (
+              <div className="plan-legend">
+                allow = really executes · mock = recorded result, no execution ·
+                skip = plan only · block = refused (needs approval)
+              </div>
+            )}
             {result.policy_notes && (
               <div style={{ marginTop: 6, color: "var(--text-dim)" }}>{result.policy_notes}</div>
             )}
+            <div style={{ marginTop: 8, color: "var(--text-dim)" }}>
+              The server only prepares this plan and state — it never executes your code.
+              Your resume handler enforces it (use <code>ctx.call_tool(...)</code> from the SDK).
+            </div>
             <div style={{ marginTop: 8 }} className="microlabel">
-              resume via SDK handler or:
+              resume from your terminal:
             </div>
             <div style={{ marginTop: 4, wordBreak: "break-all" }}>
               afr replay {shortId(runId)} --from {shortId(result.checkpoint_id)} --mode{" "}

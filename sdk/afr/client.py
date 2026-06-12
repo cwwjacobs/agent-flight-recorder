@@ -7,6 +7,7 @@ the full SDK path without a network socket.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import httpx
@@ -28,12 +29,19 @@ class AFRClient:
         *,
         http_client: httpx.Client | None = None,
         timeout: float = 10.0,
+        token: str | None = None,
     ):
+        # bearer token for AFR_API_TOKEN-protected backends; an injected
+        # http_client is left untouched (its owner controls headers)
+        token = token or os.environ.get("AFR_API_TOKEN", "").strip() or None
         if http_client is not None:
             self._http = http_client
             self._owns_http = False
         else:
-            self._http = httpx.Client(base_url=resolve_api_url(api_url), timeout=timeout)
+            headers = {"Authorization": f"Bearer {token}"} if token else None
+            self._http = httpx.Client(
+                base_url=resolve_api_url(api_url), timeout=timeout, headers=headers
+            )
             self._owns_http = True
 
     # -- plumbing -----------------------------------------------------------
@@ -59,6 +67,11 @@ class AFRClient:
 
     def __exit__(self, *exc: Any) -> None:
         self.close()
+
+    # -- meta -----------------------------------------------------------------
+
+    def health(self) -> dict:
+        return self._request("GET", "/health")
 
     # -- runs ---------------------------------------------------------------
 

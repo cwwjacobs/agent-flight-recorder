@@ -23,7 +23,7 @@ export function DiffPanel({ events }: { events: AfrEvent[] }) {
     return (
       <section className="panel panel-ticks">
         <div className="panel-head">
-          <span className="panel-title">State Diff</span>
+          <span className="panel-title">Compare State</span>
           <span className="lock-chip">🔒 premium</span>
         </div>
         <div className="panel-body">
@@ -47,7 +47,7 @@ export function DiffPanel({ events }: { events: AfrEvent[] }) {
   return (
     <section className="panel panel-ticks">
       <div className="panel-head">
-        <span className="panel-title">State Diff</span>
+        <span className="panel-title">Compare State</span>
         {counts && (
           <span className="microlabel" style={{ marginLeft: "auto" }}>
             <span className="diff-added">+{counts.added}</span>{" "}
@@ -58,7 +58,10 @@ export function DiffPanel({ events }: { events: AfrEvent[] }) {
       </div>
       <div className="panel-body">
         {points.length < 2 ? (
-          <div className="state-empty">need at least two state points to diff</div>
+          <div className="state-empty">
+            Records at least two state points (snapshots or checkpoints) and this panel
+            shows exactly what changed between them — added, removed, and changed keys.
+          </div>
         ) : (
           <>
             <div className="field-row">
@@ -92,6 +95,11 @@ export function DiffPanel({ events }: { events: AfrEvent[] }) {
               </select>
             </div>
 
+            {!entries && (
+              <div className="state-empty">
+                pick two points (A = before, B = after) to see what changed between them
+              </div>
+            )}
             {entries && entries.length === 0 && (
               <div className="state-empty">states are identical</div>
             )}

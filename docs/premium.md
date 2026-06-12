@@ -3,6 +3,10 @@
 Enable with `AFR_PREMIUM_ENABLED=true` (license boundary **placeholder** —
 there is no real billing; see `backend/app/license.py`).
 
+The free/premium boundary is enforced in one module
+(`backend/app/license.py`) so a real entitlement check can replace the env
+flag without touching anything else.
+
 | Feature | Free | Premium |
 | --- | :-: | :-: |
 | Recorder (SDK/API/CLI), timeline UI, checkpoints, state-at | ✓ | ✓ |
@@ -39,17 +43,17 @@ Replay modes and what each tool's plan action becomes:
 | `allow_safe_tools` | **allow** | mock | mock | mock |
 | `allow_side_effects` | **allow** | **allow** | mock | **allow** if `approved` else **block** |
 
-The replay ticket carries `tool_plan` (per-tool action) and `mock_results`
-(the last recorded successful result for every mocked tool — record/replay
-mocking for free). In your resume handler:
+The replay ticket (shown as the **Replay Plan** in the UI) carries
+`tool_plan` (per-tool action) and `mock_results` (the last recorded
+successful result for every mocked tool — record/replay mocking for free).
+The server computes the plan; your resume handler enforces it, and
+`ctx.call_tool` makes that automatic:
 
 ```python
 @afr.register_resume_handler
 def resume(ctx: afr.ReplayContext):
-    if ctx.should_execute("search"):
-        hits = search(q)
-    else:
-        hits = ctx.mock_result("search", default=[])
+    # allow -> executes · mock -> recorded result · skip -> default · block -> raises
+    hits = ctx.call_tool("search", search, q, default=[])
 ```
 
 ## Forked replay
@@ -65,9 +69,13 @@ browser).
 
 ## Redaction
 
-Default key redaction (`api_key`, `authorization`, `password`, `secret`,
-`token`, … — substring match, case-insensitive) is **always on**, free or
-premium, because shipping secrets to disk is not a feature tier. Disable with
+Default key redaction is **always on**, free or premium, because shipping
+secrets to disk is not a feature tier. Substring matches (case-insensitive)
+cover `api_key`, `authorization`, `password`, `secret`, `access_token`,
+`refresh_token`, `session_token`, `private_key`, `credential`, `cookie`, …;
+exact matches cover bare `token`, `bearer`, `auth`, `jwt`. Deliberately *not*
+matched: usage telemetry like `prompt_tokens`, `completion_tokens`,
+`total_tokens`, `token_count` — your token metrics survive. Disable with
 `AFR_REDACTION_ENABLED=false`; extend with `AFR_REDACT_KEYS=ssn,internal_id`.
 
 Premium adds custom redactor hooks:

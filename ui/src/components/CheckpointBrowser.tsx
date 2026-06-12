@@ -77,6 +77,19 @@ export function CheckpointBrowser({
                     {shortId(c.id)} · {fmtClock(c.created_at)}
                   </span>
                   <span className="ckpt-actions">
+                    <button
+                      className="btn btn-mini"
+                      title="select this checkpoint and jump to the replay panel"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(c.id);
+                        document
+                          .getElementById("replay-panel")
+                          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }}
+                    >
+                      ▶ replay from here
+                    </button>
                     {premium && (
                       <button
                         className="btn btn-mini"

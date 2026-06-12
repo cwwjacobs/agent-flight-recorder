@@ -1,5 +1,8 @@
 # Agent Flight Recorder
 
+[![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **AI agent observability, replay debugging, and checkpoint inspection for LLM apps.**
 
 Your agent did something weird at 2 AM. The logs are a soup of print statements, the
@@ -8,6 +11,12 @@ calls and hoping. **Agent Flight Recorder (AFR)** is the black box you bolt onto
 Python agent: it records every model call, tool call, state snapshot, and checkpoint
 into a structured timeline you can inspect, query, and **replay from any checkpoint** —
 all self-hosted, all in SQLite, no cloud account required.
+
+```text
+1. Record   — model calls, tools, state snapshots, checkpoints
+2. Inspect  — see the exact timeline and state at the moment of failure
+3. Replay safely — resume from a checkpoint with side-effecting tools mocked or gated
+```
 
 ```
 ┌──────────────┐   afr SDK    ┌───────────────┐   SQLite    ┌─────────────────┐
@@ -36,18 +45,35 @@ all self-hosted, all in SQLite, no cloud account required.
 - **A real CLI** — `afr runs list`, `afr events`, `afr replay`, `afr export`.
 - **Tiny dependency footprint** — FastAPI + SQLite + httpx. That's the stack.
 
-## Quickstart (60 seconds)
+## Try it in 90 seconds
+
+```bash
+docker compose up --build     # backend + UI on http://localhost:8700
+make demo-docker              # seed the demo incident: checkout-agent-payment-timeout
+open http://localhost:8700    # (or just click the "Create a demo incident" button in the UI)
+```
+
+The demo is a checkout agent that plans, reserves inventory, **checkpoints
+before charging the customer**, then the payment call times out. Open the
+failed run, walk the timeline to the error, select the `safe-before-side-effect`
+checkpoint, and press **Prepare replay plan** in `mock_tools` mode: the plan
+shows `charge_customer` is *mocked* — you can debug from before the dangerous
+step without charging anyone twice.
+
+## Quickstart without Docker
 
 ```bash
 make install            # venv + backend + sdk + cli (editable)
 make serve              # backend on http://127.0.0.1:8700
 
 # in another shell:
-make demo               # records a toy agent run (model calls, tools, a failure, checkpoints)
 make build-ui           # build the web UI once; the backend serves it at :8700
+make demo               # record a toy agent run through the SDK
+make demo-langchain     # record a run through the LangChain adapter (no API keys)
+afr doctor              # not sure what's wrong? this tells you
 ```
 
-Open **http://127.0.0.1:8700** → the run manifest. Click the run, walk the
+Open **http://127.0.0.1:8700** → the runs dashboard. Click a run, walk the
 timeline, expand payloads, select a checkpoint, view its state, press replay.
 
 Prefer raw commands? See [docs/quickstart.md](docs/quickstart.md).
@@ -77,6 +103,32 @@ Everything is also available as explicit calls (`afr.log_model(...)`,
 Exceptions inside the `with` block are recorded as `error` events and the run
 is marked `failed` — you keep the evidence.
 
+## Integrations
+
+| Your stack | How to attach AFR |
+| --- | --- |
+| **Plain Python** | decorators + `with afr.start_run(...)` (above) |
+| **LangChain / LangGraph** | one callback handler — see below |
+| **Custom framework** | anything that can POST JSON: [docs/api.md](docs/api.md), or duck-type the callback handler |
+
+```python
+import afr
+from afr.integrations.langchain import AFRCallbackHandler   # pip install 'afr-sdk[langchain]'
+
+handler = AFRCallbackHandler(default_tool_policy="side_effecting")
+
+with afr.start_run("langchain-demo"):
+    result = chain.invoke(
+        {"input": "Plan a refund workflow"},
+        config={"callbacks": [handler]},
+    )
+    afr.checkpoint("after-chain")
+```
+
+Details, parameters, and the adapter roadmap (OpenAI Agents SDK, CrewAI,
+proxy mode): [docs/integrations.md](docs/integrations.md) ·
+[docs/roadmap.md](docs/roadmap.md).
+
 ## Replay from a checkpoint
 
 ```python
@@ -98,7 +150,16 @@ afr replay <run_id> --from <checkpoint_id> --mode mock_tools \
 ```
 
 `dry_run` (the default) returns the reconstructed state without invoking
-anything. The full contract is documented in [docs/replay.md](docs/replay.md).
+anything. To be precise about the safety story: **the server prepares a
+per-tool safety plan and reconstructs state — it never executes your code.**
+Your resume handler enforces the plan, and the SDK makes that one line:
+
+```python
+hotel = ctx.call_tool("search_hotels", search_hotels, "Tokyo", nights=3, default={})
+# allow -> executes · mock -> recorded result · skip -> default · block -> raises
+```
+
+The full contract is documented in [docs/replay.md](docs/replay.md).
 
 ## CLI session
 
@@ -121,11 +182,12 @@ exported run 648c2cd9 → run.json
 
 ```
 backend/   FastAPI app: api/, engine/, storage/, replay/, schemas/
-sdk/       afr — Python SDK (client, context, hooks, wrappers)
-cli/       afr_cli — the afr command
+sdk/       afr — Python SDK (client, context, hooks, wrappers, integrations/)
+cli/       afr_cli — the afr command (incl. afr doctor)
 ui/        Vite + React + TS web UI (3 themes)
-examples/  toy_agent — runnable offline demo agent
-docs/      quickstart, SDK, CLI, API, replay contract, data model
+examples/  toy_agent + langchain_like_agent — runnable offline demo agents
+scripts/   seed_demo_run.py, smoke.py — stdlib-only helpers for a running server
+docs/      quickstart, SDK, CLI, API, replay contract, data model, integrations
 ```
 
 ---
@@ -151,8 +213,9 @@ Premium turns the recorder into a debugger:
 > added / removed / changed, path by path.
 >
 > ### ⛨ Redaction
-> `api_key`, `authorization`, `password`, `secret`, `token`, … scrubbed at
-> ingest by default (yes, even in free mode — secrets aren't a feature tier).
+> `api_key`, `authorization`, `password`, `secret`, `access_token`, … scrubbed
+> at ingest by default (yes, even in free mode — secrets aren't a feature
+> tier), while usage telemetry like `prompt_tokens` / `total_tokens` survives.
 > Premium adds custom redactor hooks (backend + SDK) and the UI marks every
 > redacted field explicitly.
 >
@@ -180,13 +243,17 @@ AFR_PREMIUM_ENABLED=true make serve        # license placeholder — no billing 
 | State diff viewer | — | ✓ |
 | Tags, notes, custom redactors, MCP stub | — | ✓ |
 
-## Docker
+## Docker & deployment
 
 ```bash
 docker compose up --build      # backend + UI + persistent SQLite volume
 ```
 
-See [docs/docker.md](docs/docker.md).
+The compose file binds to **127.0.0.1 only** by default — recorded prompts and
+state are sensitive, and the server ships with no auth out of the box. To
+expose it beyond localhost, set `AFR_API_TOKEN` (bearer-token auth on all
+run/data endpoints) and change the port binding deliberately. Details:
+[docs/docker.md](docs/docker.md) · [SECURITY.md](SECURITY.md).
 
 ## Docs
 
@@ -199,14 +266,18 @@ See [docs/docker.md](docs/docker.md).
 | [docs/replay.md](docs/replay.md) | the replay contract |
 | [docs/data-model.md](docs/data-model.md) | tables, event types, state folding |
 | [docs/premium.md](docs/premium.md) | premium features in depth |
-| [docs/docker.md](docs/docker.md) | container deploy |
+| [docs/docker.md](docs/docker.md) | container deploy, hardening env vars |
+| [docs/integrations.md](docs/integrations.md) | LangChain adapter + custom frameworks |
+| [docs/roadmap.md](docs/roadmap.md) | what's next (adapters, proxy mode, team mode) |
 | [docs/mcp.md](docs/mcp.md) | MCP stub |
 
 ## Tests
 
 ```bash
-make test    # 54 tests: storage, state reconstruction, API/SDK smoke,
-             # redaction, replay policies, forking, license gating, MCP
+make test    # storage, state reconstruction, API/SDK smoke, redaction,
+             # replay policies + ctx.call_tool, forking, license gating,
+             # auth tokens, demo seed, LangChain adapter, afr doctor, MCP
+make smoke   # end-to-end check against a *running* backend
 ```
 
 ## Repo history

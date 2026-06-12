@@ -1,5 +1,6 @@
 """afr — the Agent Flight Recorder CLI.
 
+    afr doctor [--read-only]          check backend, license, auth, SDK setup
     afr init                          write .afr/config.json in the cwd
     afr runs list [--status S]        list recorded runs
     afr runs show <run_id>            run details + checkpoints
@@ -14,12 +15,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+import afr as afr_sdk
 from afr.client import AFRAPIError, AFRClient
 from afr.hooks import replay as sdk_replay
 from afr.types import DEFAULT_API_URL, resolve_api_url
@@ -43,8 +46,20 @@ def load_config() -> dict[str, Any]:
 
 
 def make_client(args: argparse.Namespace) -> AFRClient:
-    api_url = args.api_url or load_config().get("api_url") or resolve_api_url()
+    api_url, _ = resolve_api_url_with_source(args)
     return AFRClient(api_url)
+
+
+def resolve_api_url_with_source(args: argparse.Namespace) -> tuple[str, str]:
+    """The URL the CLI will talk to, plus where it came from (for doctor)."""
+    if args.api_url:
+        return args.api_url, "--api-url flag"
+    config_url = load_config().get("api_url")
+    if config_url:
+        return config_url, ".afr/config.json"
+    if os.environ.get("AFR_API_URL"):
+        return os.environ["AFR_API_URL"], "AFR_API_URL env"
+    return DEFAULT_API_URL, "default"
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +341,83 @@ def cmd_export(args: argparse.Namespace) -> None:
     )
 
 
+def run_doctor(client: AFRClient, api_url: str, url_source: str, read_only: bool) -> bool:
+    """All doctor checks against an already-built client. Returns overall ok."""
+    ok = True
+    token_set = bool(os.environ.get("AFR_API_TOKEN", "").strip())
+    print("afr doctor")
+    print(f"  sdk version : {afr_sdk.__version__}")
+    print(f"  api url     : {api_url}  (from {url_source})")
+    print(f"  auth token  : {'configured via AFR_API_TOKEN' if token_set else 'not configured (AFR_API_TOKEN unset)'}")
+    print()
+
+    try:
+        health = client.health()
+        print(f"  [ok]   backend reachable — {health.get('service')} v{health.get('version')}")
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        print(f"  [FAIL] backend unreachable at {api_url}")
+        print("         start it locally :  make serve")
+        print("         or via docker    :  docker compose up --build")
+        if api_url.rstrip("/") != DEFAULT_API_URL:
+            print(f"         docker default   :  afr -A {DEFAULT_API_URL} doctor")
+        print("         elsewhere        :  afr -A http://host:8700 doctor   (or set AFR_API_URL)")
+        return False
+    except (AFRAPIError, httpx.HTTPError) as exc:
+        print(f"  [FAIL] /health failed: {exc}")
+        return False
+
+    try:
+        info = client.get_license()
+        plan = info.get("plan", "?")
+        print(f"  [ok]   license: {plan} plan"
+              + ("" if plan == "premium" else "  (premium off — set AFR_PREMIUM_ENABLED=true to compare)"))
+    except (AFRAPIError, httpx.HTTPError) as exc:
+        ok = False
+        print(f"  [FAIL] /license failed: {exc}")
+
+    try:
+        client.list_runs(limit=1)
+        print("  [ok]   read access (/runs)")
+    except AFRAPIError as exc:
+        ok = False
+        if exc.status_code == 401:
+            hint = (
+                "token is wrong — it must match the server's AFR_API_TOKEN"
+                if token_set
+                else "server requires a token — export AFR_API_TOKEN=<server token>"
+            )
+            print(f"  [FAIL] read access denied (401): {hint}")
+        else:
+            print(f"  [FAIL] read access failed: {exc}")
+    except httpx.HTTPError as exc:
+        ok = False
+        print(f"  [FAIL] read access failed: {exc}")
+
+    if read_only:
+        print("  [skip] write check (--read-only)")
+    else:
+        try:
+            run = client.create_run(name="afr-doctor-check", metadata={"doctor": True})
+            client.append_event(run["id"], "log", name="doctor", payload={"message": "doctor write check"})
+            client.end_run(run["id"], status="completed")
+            print(f"  [ok]   write access — created + ended test run {short(run['id'])}")
+        except (AFRAPIError, httpx.HTTPError) as exc:
+            ok = False
+            print(f"  [FAIL] write check failed: {exc}")
+
+    print()
+    print("all checks passed — record something: make demo" if ok else "doctor found problems (see above)")
+    return ok
+
+
+def cmd_doctor(args: argparse.Namespace) -> None:
+    api_url, url_source = resolve_api_url_with_source(args)
+    with AFRClient(api_url) as client:
+        ok = run_doctor(client, api_url, url_source, read_only=args.read_only)
+    if not ok:
+        sys.exit(1)
+
+
 def _indent(text: str, n: int) -> str:
     pad = " " * n
     return "\n".join(pad + line for line in text.splitlines())
@@ -343,6 +435,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-A", "--api-url", help="backend URL (default: $AFR_API_URL or .afr/config.json)")
     parser.add_argument("--json", action="store_true", help="emit raw JSON")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    p_doctor = sub.add_parser("doctor", help="check backend reachability, license, auth, and setup")
+    p_doctor.add_argument("--read-only", action="store_true", help="skip the test-run write check")
+    p_doctor.set_defaults(func=cmd_doctor)
 
     p_init = sub.add_parser("init", help="write .afr/config.json for this project")
     p_init.set_defaults(func=cmd_init)

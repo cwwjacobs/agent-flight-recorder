@@ -73,7 +73,10 @@ export function StatePanel({
         {stateAt && !loading && (
           <>
             <div className="microlabel" style={{ marginBottom: 8 }}>
-              source: {stateAt.source} · seq ≤ {stateAt.checkpoint.event_seq}
+              {stateAt.source === "checkpoint_table"
+                ? "source: stored with the checkpoint"
+                : "source: reconstructed from state_snapshot events"}{" "}
+              · seq ≤ {stateAt.checkpoint.event_seq}
             </div>
             {Object.keys(stateAt.state).length === 0 ? (
               <div className="state-empty">state was empty at this checkpoint</div>

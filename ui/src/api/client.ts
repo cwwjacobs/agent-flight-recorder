@@ -1,6 +1,7 @@
-import type { AfrEvent, Checkpoint, License, ReplayResult, Run, StateAt } from "./types";
+import type { AfrEvent, Checkpoint, DemoSeedResult, License, ReplayResult, Run, StateAt } from "./types";
 
 const BASE = "/api";
+const TOKEN_KEY = "afr_api_token";
 
 class ApiError extends Error {
   status: number;
@@ -10,11 +11,20 @@ class ApiError extends Error {
   }
 }
 
+export function getApiToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setApiToken(token: string | null): void {
+  if (token && token.trim()) localStorage.setItem(TOKEN_KEY, token.trim());
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = getApiToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}${path}`, { headers, ...init });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -46,6 +56,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ checkpoint_id: checkpointId, mode, approved }),
     }),
+  seedDemo: () => request<DemoSeedResult>(`/demo/seed`, { method: "POST" }),
   // premium
   getLicense: () => request<License>(`/license`),
   forkRun: (runId: string, checkpointId: string, name?: string) =>

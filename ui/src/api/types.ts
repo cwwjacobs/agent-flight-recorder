@@ -23,6 +23,9 @@ export interface Run {
   ended_at: string | null;
   events_count: number;
   checkpoints_count: number;
+  // run-list enrichment (GET /runs only)
+  last_error?: string | null;
+  event_type_counts?: Record<string, number>;
   // premium
   tags: string[];
   notes: string;
@@ -63,6 +66,13 @@ export interface StateAt {
   checkpoint: Checkpoint;
   state: Record<string, unknown>;
   source: "checkpoint_table" | "reconstructed";
+}
+
+export interface DemoSeedResult {
+  run: Run;
+  checkpoints: { safe: Checkpoint; failure: Checkpoint };
+  replay: ReplayResult;
+  ui_url: string;
 }
 
 export interface ToolPlanEntry {

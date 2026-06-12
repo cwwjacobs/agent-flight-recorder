@@ -1,13 +1,15 @@
 # CLI reference (`afr`)
 
-Global flags: `-A/--api-url URL` (else `$AFR_API_URL`, else `.afr/config.json`,
-else `http://127.0.0.1:8700`), `--json` for raw JSON output.
+Global flags: `-A/--api-url URL` (else `.afr/config.json`, else
+`$AFR_API_URL`, else `http://127.0.0.1:8700`), `--json` for raw JSON output.
+Token-protected backend? Export `AFR_API_TOKEN` and every command sends it.
 
 Run and checkpoint ids accept **unique prefixes** — the first 8 characters are
 usually enough.
 
 | Command | What it does |
 | --- | --- |
+| `afr doctor [--read-only]` | check backend reachability, `/health`, `/license`, auth token status, write access, SDK version, API URL in use; prints Docker hints when unreachable |
 | `afr init` | write `.afr/config.json` (api_url) in the cwd |
 | `afr runs list [--status S] [--tag T] [--limit N]` | run manifest |
 | `afr runs show <run_id>` | run details + checkpoints + fork lineage |

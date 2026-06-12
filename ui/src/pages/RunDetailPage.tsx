@@ -61,7 +61,7 @@ export default function RunDetailPage() {
     return (
       <main>
         <Link className="back-link" to="/">
-          ← manifest
+          ← all runs
         </Link>
         <div className="banner-error" style={{ marginTop: 16 }}>
           {error}
@@ -73,11 +73,21 @@ export default function RunDetailPage() {
   if (!run) return <div className="loading">loading run…</div>;
 
   const errorCount = events.filter(isErrorEvent).length;
+  const lastError = [...events].reverse().find((e) => e.event_type === "error");
+  const lastErrorMessage =
+    lastError ? String((lastError.payload as { message?: string }).message ?? "") : null;
+
+  const summaryLine =
+    run.status === "failed"
+      ? `Run failed${lastErrorMessage ? ` — ${lastErrorMessage}` : ""}`
+      : run.status === "running"
+        ? "Run in progress — recording live"
+        : `Run completed${errorCount > 0 ? ` (${errorCount} recovered failure${errorCount > 1 ? "s" : ""} along the way)` : ""}`;
 
   return (
     <main>
       <Link className="back-link" to="/">
-        ← manifest
+        ← all runs
       </Link>
 
       <div className="page-head" style={{ marginTop: 10 }}>
@@ -88,6 +98,20 @@ export default function RunDetailPage() {
             {t}
           </span>
         ))}
+      </div>
+
+      <div className={`run-summary ${run.status === "failed" ? "is-failed" : ""}`}>
+        <span className="summary-line">{summaryLine}</span>
+        <span className="summary-sub">
+          {checkpoints.length > 0 ? (
+            <>
+              <span className="gold">◈ {checkpoints.length} checkpoint{checkpoints.length > 1 ? "s" : ""}</span>
+              {" — replay-ready: pick one below and press “Prepare replay plan”"}
+            </>
+          ) : (
+            "no checkpoints recorded — add afr.checkpoint(\"label\") before risky steps to make this run replayable"
+          )}
+        </span>
       </div>
 
       {run.parent_run_id && (
@@ -204,7 +228,7 @@ export default function RunDetailPage() {
       </div>
 
       <p className="microlabel" style={{ marginTop: 14 }}>
-        run {shortId(run.id)} · inspect via CLI: afr runs show {shortId(run.id)}
+        run {shortId(run.id)} · CLI: afr runs show {shortId(run.id)} · afr events {shortId(run.id)}
       </p>
     </main>
   );

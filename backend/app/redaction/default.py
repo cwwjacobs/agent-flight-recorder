@@ -8,7 +8,9 @@ from typing import Any
 REDACTED_MARKER = "[REDACTED]"
 
 # Substring match, case-insensitive, against each dict key. "api_key" catches
-# OPENAI_API_KEY, anthropic_api_key, apiKeyHeader, ...
+# OPENAI_API_KEY, anthropic_api_key, apiKeyHeader, ... Deliberately NOT plain
+# "token": that would eat usage telemetry (prompt_tokens, total_tokens,
+# token_count). Secret-shaped token keys are matched explicitly instead.
 DEFAULT_REDACT_KEYS: tuple[str, ...] = (
     "api_key",
     "apikey",
@@ -16,11 +18,26 @@ DEFAULT_REDACT_KEYS: tuple[str, ...] = (
     "password",
     "passwd",
     "secret",
-    "token",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "session_token",
+    "auth_token",
+    "bearer_token",
+    "api_token",
     "private_key",
     "credential",
     "session_id",
     "cookie",
+)
+
+# Exact match (case-insensitive): keys whose bare word would over-match as a
+# substring but are secrets when they appear verbatim.
+DEFAULT_REDACT_EXACT: tuple[str, ...] = (
+    "token",
+    "bearer",
+    "auth",
+    "jwt",
 )
 
 
@@ -41,7 +58,7 @@ def _redact_keys() -> tuple[str, ...]:
 
 def _key_is_sensitive(key: str, needles: tuple[str, ...]) -> bool:
     lowered = key.lower()
-    return any(needle in lowered for needle in needles)
+    return lowered in DEFAULT_REDACT_EXACT or any(needle in lowered for needle in needles)
 
 
 def default_redact(value: Any, needles: tuple[str, ...] | None = None) -> Any:

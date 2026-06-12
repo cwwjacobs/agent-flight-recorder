@@ -101,3 +101,26 @@ def test_custom_redactor_premium_only(monkeypatch, api):
         assert ev["payload"]["email"] == "[EMAIL]"
     finally:
         clear_redactors()
+
+
+def test_token_usage_metrics_survive_redaction():
+    payload = {
+        "model": "gpt-x",
+        "usage": {"prompt_tokens": 812, "completion_tokens": 144, "total_tokens": 956},
+        "token_count": 956,
+        "max_tokens": 4096,
+        "access_token": "ya29.secret",
+        "refresh_token": "1//refresh",
+        "id_token": "eyJhbGciOi...",
+        "session_token": "sess-abc",
+        "token": "bare-token-is-still-a-secret",
+    }
+    scrubbed = default_redact(payload)
+    assert scrubbed["usage"] == {"prompt_tokens": 812, "completion_tokens": 144, "total_tokens": 956}
+    assert scrubbed["token_count"] == 956
+    assert scrubbed["max_tokens"] == 4096
+    assert scrubbed["access_token"] == REDACTED_MARKER
+    assert scrubbed["refresh_token"] == REDACTED_MARKER
+    assert scrubbed["id_token"] == REDACTED_MARKER
+    assert scrubbed["session_token"] == REDACTED_MARKER
+    assert scrubbed["token"] == REDACTED_MARKER
