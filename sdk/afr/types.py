@@ -52,6 +52,13 @@ def resolve_api_url(api_url: str | None = None) -> str:
     return api_url or os.environ.get("AFR_API_URL") or DEFAULT_API_URL
 
 
+def resolve_api_token(token: str | None = None) -> str | None:
+    """Bearer token for the backend, if any (explicit arg > AFR_API_TOKEN env)."""
+    tok = token if token is not None else os.environ.get("AFR_API_TOKEN")
+    tok = (tok or "").strip()
+    return tok or None
+
+
 def jsonable(obj: Any) -> Any:
     """Coerce any object into JSON-safe data, repr()-ing what can't serialize."""
     try:

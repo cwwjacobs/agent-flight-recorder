@@ -7,12 +7,11 @@ the full SDK path without a network socket.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import httpx
 
-from afr.types import resolve_api_url
+from afr.types import resolve_api_token, resolve_api_url
 
 
 class AFRAPIError(RuntimeError):
@@ -31,14 +30,12 @@ class AFRClient:
         timeout: float = 10.0,
         token: str | None = None,
     ):
-        # bearer token for AFR_API_TOKEN-protected backends; an injected
-        # http_client is left untouched (its owner controls headers)
-        token = token or os.environ.get("AFR_API_TOKEN", "").strip() or None
+        self._token = resolve_api_token(token)
         if http_client is not None:
             self._http = http_client
             self._owns_http = False
         else:
-            headers = {"Authorization": f"Bearer {token}"} if token else None
+            headers = {"Authorization": f"Bearer {self._token}"} if self._token else None
             self._http = httpx.Client(
                 base_url=resolve_api_url(api_url), timeout=timeout, headers=headers
             )

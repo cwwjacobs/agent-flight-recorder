@@ -213,11 +213,15 @@ Premium turns the recorder into a debugger:
 > added / removed / changed, path by path.
 >
 > ### ⛨ Redaction
-> `api_key`, `authorization`, `password`, `secret`, `access_token`, … scrubbed
-> at ingest by default (yes, even in free mode — secrets aren't a feature
-> tier), while usage telemetry like `prompt_tokens` / `total_tokens` survives.
-> Premium adds custom redactor hooks (backend + SDK) and the UI marks every
-> redacted field explicitly.
+> Secrets are scrubbed at ingest by default (yes, even in free mode — secrets
+> aren't a feature tier), two ways: sensitive **keys** (`api_key`,
+> `authorization`, `password`, `secret`, `token`, …) **and** secret-shaped
+> **values** in free text (OpenAI/Anthropic `sk-…`, AWS `AKIA…`, GitHub/Slack
+> tokens, JWTs, PEM private keys, `Bearer …`, credentials in URLs). This is
+> best-effort, not a guarantee — treat the recorded data as sensitive. Usage
+> telemetry such as `prompt_tokens` / `total_tokens` survives. Premium adds
+> custom redactor hooks (backend + SDK) and the UI marks every redacted field
+> explicitly.
 >
 > ### 🏷 Tags, notes, filters
 > Tag runs, annotate incidents, filter the timeline by type or failures-only.
@@ -243,6 +247,22 @@ AFR_PREMIUM_ENABLED=true make serve        # license placeholder — no billing 
 | State diff viewer | — | ✓ |
 | Tags, notes, custom redactors, MCP stub | — | ✓ |
 
+## Security
+
+AFR is **localhost-first**: the backend binds `127.0.0.1` by default and the
+bundled UI is served same-origin.
+
+- **CORS** is restricted to local dev origins by default (never `*`). Set
+  `AFR_CORS_ORIGINS=https://your.app` (comma-separated) to allow specific
+  origins, or `*` to knowingly open it.
+- **Auth** is off for loopback use. Set `AFR_API_TOKEN=<token>` to require
+  `Authorization: Bearer <token>` (or `X-AFR-Token`) on every API route; the SDK
+  and CLI read the same env var. **Set a token for any non-loopback or container
+  deployment** — publishing the port without one exposes the full API
+  (including replay and fork) unauthenticated.
+- **Redaction** runs at ingest and is best-effort; treat the SQLite file as
+  sensitive at rest.
+
 ## Docker & deployment
 
 ```bash
@@ -251,8 +271,8 @@ docker compose up --build      # backend + UI + persistent SQLite volume
 
 The compose file binds to **127.0.0.1 only** by default — recorded prompts and
 state are sensitive, and the server ships with no auth out of the box. To
-expose it beyond localhost, set `AFR_API_TOKEN` (bearer-token auth on all
-run/data endpoints) and change the port binding deliberately. Details:
+expose it beyond localhost, set `AFR_API_TOKEN` (auth on every API endpoint)
+and change the port binding deliberately. Details:
 [docs/docker.md](docs/docker.md) · [SECURITY.md](SECURITY.md).
 
 ## Docs
@@ -285,3 +305,8 @@ make smoke   # end-to-end check against a *running* backend
 The MVP is preserved intact: commit `mvp-agent-flight-recorder` and the
 frozen snapshot in `dist/mvp-agent-flight-recorder/`. Premium is built on
 top without rewriting it.
+
+## License
+
+Agent Flight Recorder is proprietary Terminus Protocol software, licensed only
+under the terms in [LICENSE](LICENSE) and [NOTICE](NOTICE).

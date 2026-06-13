@@ -71,7 +71,7 @@ _SECRET_GROUP_SUBS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(
-            r"(?i)\b(api[_-]?key|secret|password|passwd|access[_-]?key)"
+            r"(?i)\b(api[_-]?key|secret|token|password|passwd|access[_-]?key)"
             r"(\s*[:=]\s*['\"]?)[A-Za-z0-9._\-]{8,}"
         ),
         r"\1\2" + REDACTED_MARKER,

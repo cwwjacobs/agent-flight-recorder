@@ -7,7 +7,7 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 | --- | --- | --- | --- |
 | GET | `/health` | — | service status |
 | POST | `/runs` | `{name?, metadata?}` | created run (201) |
-| GET | `/license` | — | plan + feature flags (free endpoint) |
+| GET | `/license` | auth when configured | plan + feature flags |
 | GET | `/runs` | — (`?status=&tag=&limit=&offset=`) | run list incl. `last_error` + `event_type_counts` |
 | GET | `/runs/{run_id}` | — | one run incl. fork lineage |
 | PATCH | `/runs/{run_id}` | `{name?, tags?, notes?}` | updated run (premium) |
@@ -43,13 +43,13 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 ## Auth (optional)
 
 Unset `AFR_API_TOKEN` (default) = fully open local instance. When set, every
-`/runs*`, `/mcp*`, and `/demo*` endpoint (and the `/api`-prefixed mirrors)
-requires:
+API endpoint at the root and under the `/api` mirror requires:
 
 ```
 Authorization: Bearer <token>
 ```
 
-`/health`, `/license`, the OpenAPI docs, and the static UI stay open. The SDK
-and CLI pick the token up from the `AFR_API_TOKEN` env var automatically; the
+`/health`, the OpenAPI docs, and the static UI stay open. API clients may send
+`Authorization: Bearer <token>` or `X-AFR-Token: <token>`. The SDK and CLI
+pick the token up from the `AFR_API_TOKEN` env var automatically; the
 web UI prompts for it and keeps it in localStorage.

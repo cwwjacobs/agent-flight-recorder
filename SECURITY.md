@@ -10,9 +10,9 @@ and state. Treat the database accordingly.
   publishes `127.0.0.1:8700`). Anyone who can reach the port can read every
   recorded payload — so don't let anyone reach the port.
 - **Exposing it on a network:** set `AFR_API_TOKEN=<long random string>`
-  (bearer auth on all `/runs*`, `/mcp*`, `/demo*` routes) **and** front it
-  with TLS (reverse proxy). Set `AFR_CORS_ORIGINS` explicitly. Consider
-  `AFR_DEMO_SEED_ENABLED=false`.
+  (`Authorization: Bearer` or `X-AFR-Token` auth on every API route) **and**
+  front it with TLS (reverse proxy). Set `AFR_CORS_ORIGINS` explicitly.
+  Consider `AFR_DEMO_SEED_ENABLED=false`.
 - **Secrets at rest:** default redaction is always on — key-based (`api_key`,
   `authorization`, `password`, `secret`, `access_token`, …) plus best-effort
   scrubbing of common secret shapes in free text (`sk-…`, `AKIA…`, JWTs, PEM

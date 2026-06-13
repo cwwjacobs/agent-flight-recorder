@@ -2,7 +2,7 @@
 
 Enabled by default because AFR is a local devtool; shared deployments can
 turn it off with AFR_DEMO_SEED_ENABLED=false. When AFR_API_TOKEN is set the
-endpoint also sits behind bearer auth like every other /demo route.
+endpoint also sits behind the shared API auth dependency.
 """
 
 from __future__ import annotations

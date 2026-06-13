@@ -7,10 +7,11 @@ services:
       # on the network, change to "8700:8700" AND set AFR_API_TOKEN.
       - "127.0.0.1:8700:8700"
     environment:
-      # license boundary placeholder — set false to see the free tier
-      AFR_PREMIUM_ENABLED: ${AFR_PREMIUM_ENABLED:-true}
+      # Premium stays opt-in; compose must not bake in a premium entitlement.
+      AFR_PREMIUM_ENABLED: ${AFR_PREMIUM_ENABLED:-false}
       AFR_REDACTION_ENABLED: ${AFR_REDACTION_ENABLED:-true}
-      # optional hardening (see docs/docker.md)
+      # SECURITY: no auth unless a token is set. Publishing 8700 exposes the API
+      # to your host/network — set AFR_API_TOKEN for any non-loopback use.
       AFR_API_TOKEN: ${AFR_API_TOKEN:-}
       AFR_CORS_ORIGINS: ${AFR_CORS_ORIGINS:-}
       AFR_DEMO_SEED_ENABLED: ${AFR_DEMO_SEED_ENABLED:-true}

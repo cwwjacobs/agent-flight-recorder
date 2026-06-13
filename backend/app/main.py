@@ -15,7 +15,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__, config
 from app.api import build_router
-from app.security import TokenAuthMiddleware
 
 
 def create_app() -> FastAPI:
@@ -25,9 +24,6 @@ def create_app() -> FastAPI:
         version=__version__,
     )
 
-    # auth first, CORS second: add_middleware prepends, so CORS ends up
-    # outermost and 401 responses still carry CORS headers
-    app.add_middleware(TokenAuthMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.cors_origins(),

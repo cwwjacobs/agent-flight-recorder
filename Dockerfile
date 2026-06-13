@@ -22,8 +22,11 @@ RUN pip install --no-cache-dir ./backend
 COPY --from=ui-build /build/dist /app/ui-dist
 
 ENV AFR_DB_PATH=/data/afr.db \
-    AFR_UI_DIST=/app/ui-dist \
-    AFR_PREMIUM_ENABLED=true
+    AFR_UI_DIST=/app/ui-dist
+# Premium is opt-in: set AFR_PREMIUM_ENABLED=true at run time.
+# SECURITY: the API is unauthenticated unless AFR_API_TOKEN is set. Publishing
+# port 8700 exposes the full API (including mutating MCP tools) to anything that
+# can reach it — set AFR_API_TOKEN for any non-loopback deployment.
 
 VOLUME /data
 EXPOSE 8700
