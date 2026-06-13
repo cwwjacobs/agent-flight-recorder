@@ -24,6 +24,9 @@ and state. Treat the database accordingly.
 
 ## Reporting a vulnerability
 
-Open a GitHub issue with the label `security`, or if the report is sensitive,
-contact the maintainer directly (see the repo profile). This is a small
-self-hosted project — there is no bug bounty, but reports are read and fixed.
+For sensitive reports, use GitHub's **Report a vulnerability** form on the
+repository's Security tab. It creates a private advisory visible only to the
+maintainer and invited collaborators.
+
+Use a public GitHub issue with the `security` label only for non-sensitive
+hardening questions. There is no bug bounty, but reports are read and fixed.
