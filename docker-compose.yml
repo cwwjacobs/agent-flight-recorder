@@ -5,9 +5,14 @@ services:
     ports:
       - "8700:8700"
     environment:
-      # license boundary placeholder — set false to see the free tier
+      # Premium is a local feature flag (no billing). Default on for single-user
+      # self-host; set false to preview the free tier.
       AFR_PREMIUM_ENABLED: ${AFR_PREMIUM_ENABLED:-true}
       AFR_REDACTION_ENABLED: ${AFR_REDACTION_ENABLED:-true}
+      # SECURITY: no auth unless a token is set. Publishing 8700 exposes the API
+      # to your host/network — set AFR_API_TOKEN for any non-loopback use.
+      AFR_API_TOKEN: ${AFR_API_TOKEN:-}
+      AFR_CORS_ORIGINS: ${AFR_CORS_ORIGINS:-}
     volumes:
       - afr-data:/data
     restart: unless-stopped

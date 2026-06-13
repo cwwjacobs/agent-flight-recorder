@@ -1,0 +1,36 @@
+Agent Flight Recorder — Proprietary Software License
+Copyright (c) 2026 Corey J. (Terminus Protocol). All rights reserved.
+
+This software, including its source code, documentation, and assets (the
+"Software"), is proprietary and confidential. It is licensed, not sold.
+
+1. Grant. Subject to a valid purchase, subscription, or written agreement with
+   Terminus Protocol, you are granted a non-exclusive, non-transferable,
+   revocable license to install and use the Software for your own internal
+   purposes.
+
+2. Restrictions. Except as expressly permitted by your license or by applicable
+   law, you may not, without the prior written permission of Terminus Protocol:
+   (a) copy, redistribute, resell, sublicense, rent, lease, or publish the
+       Software or its source code;
+   (b) modify the Software to create, or use it to build, a competing product;
+   (c) remove, obscure, or alter any copyright, trademark, or other proprietary
+       notices.
+
+3. Evaluation. Any copy provided for evaluation, review, or trial is licensed
+   for that purpose only and confers no right to deploy in production or to
+   redistribute.
+
+4. No Warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. The
+   Software is an observability and replay tool; it does NOT certify the safety,
+   security, correctness, or compliance of any agent, model, or system it
+   records, and its redaction is best-effort rather than a guarantee.
+
+5. Limitation of Liability. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR
+   ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION
+   WITH THE SOFTWARE OR ITS USE.
+
+For licensing terms, commercial use, or redistribution rights, contact:
+Terminus Protocol — https://terminusprotocol.io

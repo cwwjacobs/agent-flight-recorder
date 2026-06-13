@@ -101,3 +101,43 @@ def test_custom_redactor_premium_only(monkeypatch, api):
         assert ev["payload"]["email"] == "[EMAIL]"
     finally:
         clear_redactors()
+
+
+def test_value_level_secrets_in_free_text():
+    payload = {
+        "prompt": "use OPENAI key sk-proj-ABCDEFGHIJKLMNOP1234567890 then continue",
+        "trace": "header was Authorization: Bearer abcdef1234567890ABCDEFmore",
+        "aws": "leaked id AKIA1234567890ABCD56 in logs",
+        "dsn": "postgres://user:supersecretpw@db.host:5432/app",
+        "jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.s5xYdummysig1234",
+        "note": "nothing sensitive here at all",
+    }
+    scrubbed = default_redact(payload)
+    # secrets gone
+    assert "sk-proj-ABCDEFGHIJKLMNOP1234567890" not in scrubbed["prompt"]
+    assert "abcdef1234567890ABCDEF" not in scrubbed["trace"]
+    assert "AKIA1234567890ABCD56" not in scrubbed["aws"]
+    assert "supersecretpw" not in scrubbed["dsn"]
+    assert "eyJhbGciOiJIUzI1NiJ9" not in scrubbed["jwt"]
+    # surrounding context preserved
+    assert "use OPENAI key" in scrubbed["prompt"]
+    assert REDACTED_MARKER in scrubbed["prompt"]
+    assert "@db.host" in scrubbed["dsn"]
+    # ordinary text untouched
+    assert scrubbed["note"] == "nothing sensitive here at all"
+
+
+def test_value_redaction_applies_at_ingest(api):
+    run_id = api.post("/runs", json={}).json()["id"]
+    api.post(
+        f"/runs/{run_id}/events",
+        json={
+            "event_type": "model_call",
+            "name": "ask",
+            "payload": {"prompt": "the key is sk-live-ABCDEFGHIJKLMNOP1234 use it", "status": "ok"},
+        },
+    )
+    ev = api.get(f"/runs/{run_id}/events").json()[0]
+    assert "sk-live-ABCDEFGHIJKLMNOP1234" not in ev["payload"]["prompt"]
+    assert REDACTED_MARKER in ev["payload"]["prompt"]
+    assert ev["payload"]["status"] == "ok"

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from afr.types import resolve_api_url
+from afr.types import resolve_api_token, resolve_api_url
 
 
 class AFRAPIError(RuntimeError):
@@ -28,12 +28,17 @@ class AFRClient:
         *,
         http_client: httpx.Client | None = None,
         timeout: float = 10.0,
+        token: str | None = None,
     ):
+        self._token = resolve_api_token(token)
         if http_client is not None:
             self._http = http_client
             self._owns_http = False
         else:
-            self._http = httpx.Client(base_url=resolve_api_url(api_url), timeout=timeout)
+            headers = {"Authorization": f"Bearer {self._token}"} if self._token else None
+            self._http = httpx.Client(
+                base_url=resolve_api_url(api_url), timeout=timeout, headers=headers
+            )
             self._owns_http = True
 
     # -- plumbing -----------------------------------------------------------

@@ -151,10 +151,14 @@ Premium turns the recorder into a debugger:
 > added / removed / changed, path by path.
 >
 > ### ⛨ Redaction
-> `api_key`, `authorization`, `password`, `secret`, `token`, … scrubbed at
-> ingest by default (yes, even in free mode — secrets aren't a feature tier).
-> Premium adds custom redactor hooks (backend + SDK) and the UI marks every
-> redacted field explicitly.
+> Secrets are scrubbed at ingest by default (yes, even in free mode — secrets
+> aren't a feature tier), two ways: sensitive **keys** (`api_key`,
+> `authorization`, `password`, `secret`, `token`, …) **and** secret-shaped
+> **values** in free text (OpenAI/Anthropic `sk-…`, AWS `AKIA…`, GitHub/Slack
+> tokens, JWTs, PEM private keys, `Bearer …`, credentials in URLs). This is
+> best-effort, not a guarantee — treat the recorded data as sensitive. Premium
+> adds custom redactor hooks (backend + SDK) and the UI marks every redacted
+> field explicitly.
 >
 > ### 🏷 Tags, notes, filters
 > Tag runs, annotate incidents, filter the timeline by type or failures-only.
@@ -179,6 +183,22 @@ AFR_PREMIUM_ENABLED=true make serve        # license placeholder — no billing 
 | Forked replay + lineage | — | ✓ |
 | State diff viewer | — | ✓ |
 | Tags, notes, custom redactors, MCP stub | — | ✓ |
+
+## Security
+
+AFR is **localhost-first**: the backend binds `127.0.0.1` by default and the
+bundled UI is served same-origin.
+
+- **CORS** is restricted to local dev origins by default (never `*`). Set
+  `AFR_CORS_ORIGINS=https://your.app` (comma-separated) to allow specific
+  origins, or `*` to knowingly open it.
+- **Auth** is off for loopback use. Set `AFR_API_TOKEN=<token>` to require
+  `Authorization: Bearer <token>` (or `X-AFR-Token`) on every API route; the SDK
+  and CLI read the same env var. **Set a token for any non-loopback or container
+  deployment** — publishing the port without one exposes the full API
+  (including replay and fork) unauthenticated.
+- **Redaction** runs at ingest and is best-effort; treat the SQLite file as
+  sensitive at rest.
 
 ## Docker
 
