@@ -1,5 +1,15 @@
 # Quickstart
 
+The fastest path is Docker + the seeded demo:
+
+```bash
+docker compose up --build      # http://localhost:8700
+make demo-docker               # seed checkout-agent-payment-timeout
+```
+
+(or press **Create a demo incident** on the empty dashboard — same thing).
+Everything below is the no-Docker path.
+
 ## 1. Install
 
 ```bash
@@ -21,11 +31,21 @@ The SQLite database defaults to `./afr.db` (override with `AFR_DB_PATH`).
 ## 3. Record a run
 
 ```bash
-.venv/bin/python examples/toy_agent/toy_agent.py   # or: make demo
+.venv/bin/python examples/toy_agent/toy_agent.py            # or: make demo
+.venv/bin/python examples/langchain_like_agent/agent.py     # or: make demo-langchain
+python3 scripts/seed_demo_run.py                            # or: make demo-docker
 ```
 
 The toy agent records model calls, tool calls (one fails on purpose and is
-retried), state snapshots, and three checkpoints.
+retried), state snapshots, and three checkpoints. The langchain-like agent
+records through the adapter ([integrations.md](integrations.md)). The seed
+script creates the polished `checkout-agent-payment-timeout` incident.
+
+Something not working?
+
+```bash
+.venv/bin/afr doctor    # backend reachable? license? auth? can it write?
+```
 
 ## 4. Inspect
 
@@ -71,4 +91,6 @@ with afr.start_run("my-agent"):
 ```
 
 Set `AFR_API_URL` if the backend is not on `http://127.0.0.1:8700`, or run
-`afr init` to write a per-project `.afr/config.json`.
+`afr init` to write a per-project `.afr/config.json`. If the server was
+started with `AFR_API_TOKEN`, export the same variable where your agent and
+CLI run — the SDK sends it automatically.

@@ -45,6 +45,9 @@ class RunOut(BaseModel):
     ended_at: str | None = None
     events_count: int = 0
     checkpoints_count: int = 0
+    # run-list enrichment (GET /runs only; empty on single-run reads)
+    last_error: str | None = None
+    event_type_counts: dict[str, int] = Field(default_factory=dict)
     # premium fields (always present, empty in free mode)
     tags: list[str] = Field(default_factory=list)
     notes: str = ""

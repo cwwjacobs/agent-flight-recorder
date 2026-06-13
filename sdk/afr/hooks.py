@@ -29,6 +29,18 @@ ResumeHandler = Callable[["ReplayContext"], Any]
 _handlers: dict[str, ResumeHandler] = {}
 
 
+class ToolBlockedError(RuntimeError):
+    """Raised by ReplayContext.call_tool for tools the replay plan blocks."""
+
+    def __init__(self, tool: str, mode: str):
+        self.tool = tool
+        self.mode = mode
+        super().__init__(
+            f"tool {tool!r} is blocked under replay mode {mode!r} — it requires "
+            "approval; re-request the replay with approved=true to allow it"
+        )
+
+
 @dataclass
 class ReplayContext:
     """Everything a resume handler needs to pick up where the run left off.
@@ -61,6 +73,29 @@ class ReplayContext:
     def mock_result(self, tool: str, default: Any = None) -> Any:
         """Last recorded successful result for a mocked tool, if any."""
         return self.mock_results.get(tool, default)
+
+    def call_tool(
+        self, tool: str, fn: Callable[..., Any], *args: Any, default: Any = None, **kwargs: Any
+    ) -> Any:
+        """Run a tool the way the replay plan says to.
+
+        The server never executes your code — it only computes the plan. This
+        helper is how a resume handler honors it without hand-rolling the
+        action matrix:
+
+            allow  -> fn(*args, **kwargs) really executes
+            mock   -> last recorded result (or `default` if none was recorded)
+            skip   -> `default`, nothing executes
+            block  -> raises ToolBlockedError
+        """
+        action = self.action_for(tool)
+        if action == "allow":
+            return fn(*args, **kwargs)
+        if action == "mock":
+            return self.mock_result(tool, default)
+        if action == "skip":
+            return default
+        raise ToolBlockedError(tool, self.mode)
 
 
 def register_resume_handler(

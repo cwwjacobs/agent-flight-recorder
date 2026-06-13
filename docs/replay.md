@@ -51,14 +51,33 @@ afr.replay(run_id, checkpoint_id, mode="mock_tools")
 - CLI equivalent: `afr replay <run> --from <ckpt> --mode mock_tools
   --handler my.module:resume`.
 
-## Modes (MVP)
+- `ctx.call_tool(tool, fn, *args, default=None, **kwargs)` — runs a tool the
+  way the plan says to: `allow` executes `fn`, `mock` returns the recorded
+  result (or `default`), `skip` returns `default`, `block` raises
+  `afr.ToolBlockedError`. Use it and your handler can't execute a
+  side-effecting tool by accident.
 
-| Mode | Behaviour |
-| --- | --- |
-| `dry_run` (default) | fetch ticket, print/return state, execute nothing |
-| anything else | passed through to your handler untouched |
+## Modes
 
-The MVP trusts your handler to interpret the mode. The Premium tier replaces
-this with an enforced safety-policy engine (`dry_run` / `mock_tools` /
-`allow_safe_tools` / `allow_side_effects` with per-tool policies, mocked
-side-effecting tools by default, and approval gates).
+| Mode | Behaviour | Tier |
+| --- | --- | --- |
+| `dry_run` (default) | plan + state only; the SDK invokes **no** handler | free |
+| `mock_tools` | handler runs; every tool is mocked from recorded results | free |
+| `allow_safe_tools` | tools recorded `policy="safe"` execute; everything else mocked | premium |
+| `allow_side_effects` | side effects execute; `requires_approval` tools blocked unless `approved: true` | premium |
+
+## Who enforces what — read this part
+
+Wording matters here, so to be exact:
+
+- the **server** validates the request, reconstructs state, computes the
+  per-tool safety plan (`tool_plan`) and recorded mock results, and logs the
+  request on the timeline. It **never executes your code or your tools.**
+- the **SDK** provides `ReplayContext` helpers (`call_tool`, `action_for`,
+  `should_execute`, `mock_result`) that make honoring the plan one line.
+- your **resume handler** is where execution happens. Use the helpers; a
+  handler that ignores the plan and calls tools directly gets no protection
+  from anyone.
+
+The UI labels the ticket a **Replay Plan** — same JSON document, friendlier
+name.

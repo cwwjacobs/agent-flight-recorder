@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+import pytest
+from fastapi.testclient import TestClient
+
 from app import config
+from app.main import create_app
+
+TOKEN = "test-token-123"
 
 
 # ---------------------------------------------------------------------------
 # token auth
+
+
+@pytest.fixture()
+def locked_api(monkeypatch) -> TestClient:
+    monkeypatch.setenv("AFR_API_TOKEN", TOKEN)
+    return TestClient(create_app())
 
 
 def test_api_is_open_when_no_token(api):
@@ -26,6 +38,25 @@ def test_token_required_when_set(monkeypatch, api):
 def test_health_stays_open_even_with_token(monkeypatch, api):
     monkeypatch.setenv("AFR_API_TOKEN", "s3cr3t-token")
     assert api.get("/health").status_code == 200
+
+
+def test_all_api_router_mounts_are_guarded(locked_api):
+    assert locked_api.get("/runs").status_code == 401
+    assert locked_api.get("/api/runs").status_code == 401
+    assert locked_api.get("/license").status_code == 401
+    assert locked_api.post("/mcp/call", json={"tool": "x"}).status_code == 401
+    assert locked_api.post("/demo/seed").status_code == 401
+
+
+def test_wrong_or_malformed_token_rejected(locked_api):
+    assert locked_api.get("/runs", headers={"Authorization": "Bearer nope"}).status_code == 401
+    assert locked_api.get("/runs", headers={"Authorization": TOKEN}).status_code == 401
+
+
+def test_401_includes_www_authenticate_and_hint(locked_api):
+    response = locked_api.get("/runs")
+    assert response.headers.get("www-authenticate") == "Bearer"
+    assert "AFR_API_TOKEN" in response.json()["detail"]["hint"]
 
 
 def test_write_routes_are_guarded_too(monkeypatch, api):

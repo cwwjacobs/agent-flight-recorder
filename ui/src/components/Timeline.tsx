@@ -8,6 +8,15 @@ export function isErrorEvent(e: AfrEvent): boolean {
   return e.event_type === "error" || (e.payload as { status?: string }).status === "error";
 }
 
+const TYPE_ICON: Record<string, string> = {
+  model_call: "✦",
+  tool_call: "⚙",
+  state_snapshot: "≡",
+  checkpoint: "◈",
+  log: "·",
+  error: "⚠",
+};
+
 function EventCard({
   event,
   run,
@@ -37,6 +46,7 @@ function EventCard({
       <div className="tl-card">
         <button className="tl-row" onClick={() => setOpen((v) => !v)}>
           <span className="tl-seq">#{String(event.seq).padStart(3, "0")}</span>
+          <span className="tl-icon">{TYPE_ICON[event.event_type] ?? "·"}</span>
           <span className="tl-type">{event.event_type.replace("_", " ")}</span>
           <span className="tl-name">{event.name ?? "—"}</span>
           {failed && <span className="tl-status-err">FAIL</span>}

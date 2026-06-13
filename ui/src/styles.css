@@ -1214,3 +1214,280 @@ textarea.control:focus {
 .approve-row input {
   accent-color: var(--danger);
 }
+
+/* --------------------------------------------------------------------------
+   dashboard metric cards
+   -------------------------------------------------------------------------- */
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.metric-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.metric-value.metric-time {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  padding-top: 6px;
+}
+
+.metric-card.metric-bad .metric-value {
+  color: var(--danger);
+}
+
+.metric-card.metric-gold .metric-value {
+  color: var(--gold);
+}
+
+/* --------------------------------------------------------------------------
+   onboarding (empty state)
+   -------------------------------------------------------------------------- */
+
+.onboarding {
+  padding: 34px 28px 30px;
+}
+
+.onboard-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.onboard-lede {
+  color: var(--text-dim);
+  max-width: 640px;
+  margin: 0 0 22px;
+}
+
+.onboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.onboard-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-sunken);
+}
+
+.onboard-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.onboard-snippet {
+  width: 100%;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.copy-cmd {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: border-color 140ms ease;
+}
+
+.copy-cmd:hover {
+  border-color: var(--accent);
+}
+
+.copy-cmd code {
+  font-size: 12px;
+}
+
+.copy-hint {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.token-prompt {
+  max-width: 560px;
+}
+
+/* --------------------------------------------------------------------------
+   run list: name cell, inline error, mini event strip
+   -------------------------------------------------------------------------- */
+
+.run-name-cell {
+  max-width: 360px;
+}
+
+.run-name-cell .run-name {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.run-name-cell .run-id {
+  display: block;
+  margin-top: 1px;
+}
+
+.run-error {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--danger);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.strip-item[data-type="model_call"] { color: var(--node-model); }
+.strip-item[data-type="tool_call"] { color: var(--node-tool); }
+.strip-item[data-type="state_snapshot"] { color: var(--node-state); }
+.strip-item[data-type="checkpoint"] { color: var(--node-checkpoint); }
+.strip-item[data-type="error"] { color: var(--node-error); }
+
+.strip-arrow {
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+
+.strip-count {
+  font-size: 9.5px;
+  color: var(--text-faint);
+}
+
+/* --------------------------------------------------------------------------
+   run detail: summary banner, replay plan helpers
+   -------------------------------------------------------------------------- */
+
+.run-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow);
+}
+
+.run-summary.is-failed {
+  border-color: var(--danger);
+  background: linear-gradient(0deg, var(--danger-soft), var(--danger-soft)), var(--bg-raised);
+}
+
+.run-summary .summary-line {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.run-summary.is-failed .summary-line {
+  color: var(--danger);
+}
+
+.run-summary .summary-sub {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.run-summary .summary-sub .gold {
+  color: var(--gold);
+}
+
+.mode-help {
+  margin: -4px 0 12px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.warn-banner {
+  border: 1px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.plan-legend {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  line-height: 1.7;
+}
+
+.tl-icon {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  color: var(--node, var(--text-dim));
+  font-size: 12px;
+}

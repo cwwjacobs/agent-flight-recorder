@@ -36,4 +36,5 @@ def require_auth(
                 "error": "unauthorized",
                 "hint": "send Authorization: Bearer <AFR_API_TOKEN> (or X-AFR-Token)",
             },
+            headers={"WWW-Authenticate": "Bearer"},
         )

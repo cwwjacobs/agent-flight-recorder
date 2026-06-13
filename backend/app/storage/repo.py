@@ -163,6 +163,43 @@ def set_run_status(run_id: str, status: str, ended_at: str | None) -> dict | Non
     return get_run(run_id)
 
 
+def last_errors_for_runs(run_ids: list[str]) -> dict[str, str | None]:
+    """Latest error-event message per run (for run-list summaries)."""
+    if not run_ids:
+        return {}
+    placeholders = ",".join("?" * len(run_ids))
+    with connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT e.run_id, e.payload FROM events e
+            JOIN (
+                SELECT run_id, MAX(seq) AS max_seq FROM events
+                WHERE event_type = 'error' AND run_id IN ({placeholders})
+                GROUP BY run_id
+            ) latest ON e.run_id = latest.run_id AND e.seq = latest.max_seq
+            """,
+            run_ids,
+        ).fetchall()
+    return {row["run_id"]: _loads(row["payload"], {}).get("message") for row in rows}
+
+
+def event_type_counts_for_runs(run_ids: list[str]) -> dict[str, dict[str, int]]:
+    """{run_id: {event_type: count}} (for run-list event strips)."""
+    if not run_ids:
+        return {}
+    placeholders = ",".join("?" * len(run_ids))
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT run_id, event_type, COUNT(*) AS n FROM events"
+            f" WHERE run_id IN ({placeholders}) GROUP BY run_id, event_type",
+            run_ids,
+        ).fetchall()
+    counts: dict[str, dict[str, int]] = {}
+    for row in rows:
+        counts.setdefault(row["run_id"], {})[row["event_type"]] = row["n"]
+    return counts
+
+
 # ---------------------------------------------------------------------------
 # events (append-only)
 

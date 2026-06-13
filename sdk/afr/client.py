@@ -65,6 +65,11 @@ class AFRClient:
     def __exit__(self, *exc: Any) -> None:
         self.close()
 
+    # -- meta -----------------------------------------------------------------
+
+    def health(self) -> dict:
+        return self._request("GET", "/health")
+
     # -- runs ---------------------------------------------------------------
 
     def create_run(self, name: str | None = None, metadata: dict | None = None) -> dict:

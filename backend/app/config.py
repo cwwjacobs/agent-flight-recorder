@@ -17,6 +17,17 @@ def db_path() -> str:
     return os.environ.get("AFR_DB_PATH", DEFAULT_DB_PATH)
 
 
+def demo_seed_enabled() -> bool:
+    """POST /demo/seed availability (default on — this is a local devtool;
+    set AFR_DEMO_SEED_ENABLED=false on shared deployments)."""
+    return os.environ.get("AFR_DEMO_SEED_ENABLED", "true").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
 def ui_dist_path() -> Path | None:
     """Directory with the built UI, if present. Served as static files."""
     env = os.environ.get("AFR_UI_DIST")

@@ -84,9 +84,28 @@ result = afr.replay(run_id, checkpoint_id, mode="mock_tools")
 `mode="dry_run"` (default) fetches the ticket without invoking any handler.
 Handlers can also be passed explicitly: `afr.replay(..., handler="my.module:fn")`.
 
+Inside a handler, let the server's per-tool safety plan drive execution:
+
+```python
+hotel = ctx.call_tool("search_hotels", search_hotels, "Tokyo", nights=3, default={})
+# plan says allow -> executes fn · mock -> ctx.mock_result(...) · skip -> default
+# block -> raises afr.ToolBlockedError (requires_approval without approval)
+```
+
+Related helpers: `ctx.action_for(tool)`, `ctx.should_execute(tool)`,
+`ctx.mock_result(tool, default)`. Against a free backend (no plan), unknown
+tools are never executed by accident — they mock/skip.
+
+## Integrations
+
+`afr.integrations.langchain.AFRCallbackHandler` maps LangChain/LangGraph
+callbacks onto AFR events — see [integrations.md](integrations.md).
+
 ## Low-level client
 
-`afr.AFRClient` exposes the raw API (`create_run`, `append_event`,
+`afr.AFRClient` exposes the raw API (`health`, `create_run`, `append_event`,
 `checkpoint`, `state_at`, `replay`, `export_bundle`, ...). Pass
 `http_client=` to inject any `httpx.Client`-compatible transport — that's how
-the test suite runs the SDK against an in-process app.
+the test suite runs the SDK against an in-process app. If `AFR_API_TOKEN` is
+set (or `token=` is passed), the client sends it as a bearer header for
+token-protected backends.

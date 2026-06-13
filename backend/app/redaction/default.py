@@ -9,7 +9,9 @@ from typing import Any
 REDACTED_MARKER = "[REDACTED]"
 
 # Substring match, case-insensitive, against each dict key. "api_key" catches
-# OPENAI_API_KEY, anthropic_api_key, apiKeyHeader, ...
+# OPENAI_API_KEY, anthropic_api_key, apiKeyHeader, ... Deliberately NOT plain
+# "token": that would eat usage telemetry (prompt_tokens, total_tokens,
+# token_count). Secret-shaped token keys are matched explicitly instead.
 DEFAULT_REDACT_KEYS: tuple[str, ...] = (
     "api_key",
     "apikey",
@@ -17,16 +19,33 @@ DEFAULT_REDACT_KEYS: tuple[str, ...] = (
     "password",
     "passwd",
     "secret",
-    "token",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "session_token",
+    "auth_token",
+    "bearer_token",
+    "api_token",
     "private_key",
     "credential",
     "session_id",
     "cookie",
 )
 
-# Value-level secret patterns — catch secrets embedded in free-text values
-# (model prompts, tool results, tracebacks) that key-name matching misses.
-# Conservative and anchored to keep false positives low.
+# Exact match (case-insensitive): keys whose bare word would over-match as a
+# substring but are secrets when they appear verbatim.
+DEFAULT_REDACT_EXACT: tuple[str, ...] = (
+    "token",
+    "bearer",
+    "auth",
+    "jwt",
+)
+
+# Value-level secret patterns — catch secrets embedded in free-text VALUES
+# (model prompts, tool results, tracebacks) that key matching never sees.
+# Conservative and anchored to keep false positives low. This complements, and
+# never overrides, the key tiers above (usage telemetry stays untouched: ints
+# are not scanned, and these patterns don't match prompt_tokens / total_tokens).
 _SECRET_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
@@ -77,7 +96,7 @@ def _redact_keys() -> tuple[str, ...]:
 
 def _key_is_sensitive(key: str, needles: tuple[str, ...]) -> bool:
     lowered = key.lower()
-    return any(needle in lowered for needle in needles)
+    return lowered in DEFAULT_REDACT_EXACT or any(needle in lowered for needle in needles)
 
 
 def _redact_text(text: str) -> str:

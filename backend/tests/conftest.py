@@ -16,6 +16,7 @@ def isolated_db(tmp_path, monkeypatch):
         "AFR_REDACT_KEYS",
         "AFR_API_TOKEN",
         "AFR_CORS_ORIGINS",
+        "AFR_DEMO_SEED_ENABLED",
     ):
         monkeypatch.delenv(var, raising=False)
     yield

@@ -103,6 +103,29 @@ def test_custom_redactor_premium_only(monkeypatch, api):
         clear_redactors()
 
 
+def test_token_usage_metrics_survive_redaction():
+    payload = {
+        "model": "gpt-x",
+        "usage": {"prompt_tokens": 812, "completion_tokens": 144, "total_tokens": 956},
+        "token_count": 956,
+        "max_tokens": 4096,
+        "access_token": "ya29.secret",
+        "refresh_token": "1//refresh",
+        "id_token": "eyJhbGciOi...",
+        "session_token": "sess-abc",
+        "token": "bare-token-is-still-a-secret",
+    }
+    scrubbed = default_redact(payload)
+    assert scrubbed["usage"] == {"prompt_tokens": 812, "completion_tokens": 144, "total_tokens": 956}
+    assert scrubbed["token_count"] == 956
+    assert scrubbed["max_tokens"] == 4096
+    assert scrubbed["access_token"] == REDACTED_MARKER
+    assert scrubbed["refresh_token"] == REDACTED_MARKER
+    assert scrubbed["id_token"] == REDACTED_MARKER
+    assert scrubbed["session_token"] == REDACTED_MARKER
+    assert scrubbed["token"] == REDACTED_MARKER
+
+
 def test_value_level_secrets_in_free_text():
     payload = {
         "prompt": "use OPENAI key sk-proj-ABCDEFGHIJKLMNOP1234567890 then continue",
@@ -125,6 +148,36 @@ def test_value_level_secrets_in_free_text():
     assert "@db.host" in scrubbed["dsn"]
     # ordinary text untouched
     assert scrubbed["note"] == "nothing sensitive here at all"
+
+
+def test_value_redaction_does_not_eat_token_usage_strings():
+    # the deliberate token-telemetry carve-out must hold for string values too
+    scrubbed = default_redact({"summary": "used prompt_tokens=812 total_tokens=956"})
+    assert scrubbed["summary"] == "used prompt_tokens=812 total_tokens=956"
+
+
+def test_value_level_redaction_covers_supported_secret_families():
+    secrets = {
+        "openai": "sk-proj-ABCDEFGHIJKLMNOP1234567890",
+        "aws_akia": "AKIA1234567890ABCD56",
+        "aws_asia": "ASIA1234567890ABCD56",
+        "github_classic": "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+        "github_fine_grained": "github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+        "slack": "xoxb-1234567890-ABCDEFGHIJ",
+        "google": "AIzaABCDEFGHIJKLMNOPQRSTUVWXYZ123456789",
+        "jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.s5xYdummysig1234",
+        "pem": (
+            "-----BEGIN PRIVATE KEY-----\n"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+            "-----END PRIVATE KEY-----"
+        ),
+        "bearer": "Bearer abcdef1234567890ABCDEF",
+        "url": "postgres://user:supersecretpw@db.host:5432/app",
+    }
+    scrubbed = default_redact({key: f"before {value} after" for key, value in secrets.items()})
+    for key, secret in secrets.items():
+        assert secret not in scrubbed[key]
+        assert REDACTED_MARKER in scrubbed[key]
 
 
 def test_value_redaction_applies_at_ingest(api):

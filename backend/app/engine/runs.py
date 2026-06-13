@@ -49,7 +49,14 @@ def list_runs(
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
-    return repo.list_runs(status=status, tag=tag, limit=limit, offset=offset)
+    runs = repo.list_runs(status=status, tag=tag, limit=limit, offset=offset)
+    run_ids = [r["id"] for r in runs]
+    last_errors = repo.last_errors_for_runs(run_ids)
+    type_counts = repo.event_type_counts_for_runs(run_ids)
+    for run in runs:
+        run["last_error"] = last_errors.get(run["id"])
+        run["event_type_counts"] = type_counts.get(run["id"], {})
+    return runs
 
 
 def update_run(

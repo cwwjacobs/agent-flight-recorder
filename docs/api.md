@@ -7,15 +7,21 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 | --- | --- | --- | --- |
 | GET | `/health` | — | service status |
 | POST | `/runs` | `{name?, metadata?}` | created run (201) |
-| GET | `/runs` | — (`?status=&limit=&offset=`) | run list with event/checkpoint counts |
-| GET | `/runs/{run_id}` | — | one run |
+| GET | `/license` | auth when configured | plan + feature flags |
+| GET | `/runs` | — (`?status=&tag=&limit=&offset=`) | run list incl. `last_error` + `event_type_counts` |
+| GET | `/runs/{run_id}` | — | one run incl. fork lineage |
+| PATCH | `/runs/{run_id}` | `{name?, tags?, notes?}` | updated run (premium) |
+| POST | `/runs/{run_id}/fork` | `{checkpoint_id, name?}` | new run forked from a checkpoint (premium, 201) |
 | POST | `/runs/{run_id}/end` | `{status?: completed\|failed}` | updated run |
 | POST | `/runs/{run_id}/events` | `{event_type, name?, payload?, created_at?}` | created event (201) |
 | GET | `/runs/{run_id}/events` | — (`?event_type=&limit=&offset=`) | events in seq order |
 | POST | `/runs/{run_id}/checkpoint` | `{label?, state?}` | created checkpoint (201) |
 | GET | `/runs/{run_id}/checkpoints` | — | checkpoints in order |
 | GET | `/runs/{run_id}/state-at/{checkpoint_id}` | — (`?reconstruct=true` to re-fold) | `{checkpoint, state, source}` |
-| POST | `/runs/{run_id}/replay` | `{checkpoint_id, mode?}` | replay ticket |
+| POST | `/runs/{run_id}/replay` | `{checkpoint_id, mode?, approved?}` | replay ticket (the UI calls it a *Replay Plan*) |
+| POST | `/demo/seed` | — | seed the demo incident (201; 403 if `AFR_DEMO_SEED_ENABLED=false`) |
+| GET | `/mcp/tools` | — | MCP stub tool registry (premium) |
+| POST | `/mcp/call` | `{tool, arguments?}` | invoke an MCP stub tool (premium) |
 
 ## Event types
 
@@ -31,4 +37,19 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
   `{model, provider, input, output, status, duration_ms}`.
 - A `state_snapshot` payload is `{state: {...}, mode: "replace"|"merge"}`.
 - Appends are accepted after a run ends (late buffers, replay bookkeeping).
-- Errors: 404 unknown run/checkpoint, 422 validation.
+- Errors: 404 unknown run/checkpoint, 422 validation, 402 premium feature
+  disabled, 401 missing/wrong bearer token (only when `AFR_API_TOKEN` is set).
+
+## Auth (optional)
+
+Unset `AFR_API_TOKEN` (default) = fully open local instance. When set, every
+API endpoint at the root and under the `/api` mirror requires:
+
+```
+Authorization: Bearer <token>
+```
+
+`/health`, the OpenAPI docs, and the static UI stay open. API clients may send
+`Authorization: Bearer <token>` or `X-AFR-Token: <token>`. The SDK and CLI
+pick the token up from the `AFR_API_TOKEN` env var automatically; the
+web UI prompts for it and keeps it in localStorage.
