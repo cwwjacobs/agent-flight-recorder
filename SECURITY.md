@@ -13,9 +13,11 @@ and state. Treat the database accordingly.
   (bearer auth on all `/runs*`, `/mcp*`, `/demo*` routes) **and** front it
   with TLS (reverse proxy). Set `AFR_CORS_ORIGINS` explicitly. Consider
   `AFR_DEMO_SEED_ENABLED=false`.
-- **Secrets at rest:** default key-based redaction is always on (`api_key`,
-  `authorization`, `password`, `secret`, `access_token`, …) and cannot catch
-  secrets embedded in free text. Don't log secrets into prompts.
+- **Secrets at rest:** default redaction is always on — key-based (`api_key`,
+  `authorization`, `password`, `secret`, `access_token`, …) plus best-effort
+  scrubbing of common secret shapes in free text (`sk-…`, `AKIA…`, JWTs, PEM
+  keys, `Bearer …`, credentials in URLs). Best-effort is not a guarantee —
+  don't log secrets into prompts.
 - **Replay safety:** the server never executes user code. Replay execution
   happens in *your* process via your resume handler — use `ctx.call_tool`
   so side-effecting tools stay mocked/blocked per the plan.

@@ -1,0 +1,8 @@
+Agent Flight Recorder
+Copyright (c) 2026 Corey J. (Terminus Protocol). All rights reserved.
+
+This product is proprietary software licensed under the terms in LICENSE.
+
+It depends, at runtime, on third-party open-source packages (FastAPI, Starlette,
+Uvicorn, Pydantic, httpx, React, and their dependencies), each distributed under
+its own license. No third-party source is included or modified here.
