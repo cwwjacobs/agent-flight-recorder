@@ -4,21 +4,42 @@ Status: draft
 Owner: Core
 Mode: Work Mode
 
-## One-line definition
-
-KSL is a three-stage recursive workflow:
+KSL means:
 
 ```text
-Stage 1 maps and locks the Kernel.
-Stage 2 walks the phased Step Spine.
-Stage 3 breaks, checks, bolsters, versions, and returns to Stage 1.
+Kernel -> Spine -> Loop
 ```
 
-## Core rule
+It is a three-stage workflow for turning an intention into a mapped build, then crushing the result against the original Kernel before deciding whether to exit, repair, or begin a new version.
 
-Every blocker, drift, failed check, broken architecture point, or required fix returns to Stage 1.
+---
 
-Returning to Stage 1 is not failure. It is how the map stays true.
+# KSL MAP
+
+```text
+* Stage 1: Iterative Kernel Surfacing and Locking
+|   L-- surface Kernel
+|   L-- define Goal
+|   L-- define Scope
+|   L-- map Phase Spine
+|   L-- lock completion check
+|
+* Stage 2: Build Stage / Walk the Spine
+|   L-- Phase: overarching phase goal
+|       L-- Step: action space inside the phase
+|   L-- if blocker appears -> Stage 1
+|   L-- if map breaks -> Stage 1
+|   L-- if map holds -> continue
+|
+* Stage 3: Architecture Crush and Repair
+    L-- crush-check what was created
+    L-- if it crumbles -> Stage 1
+    L-- if it holds -> repair/bolster cracks
+    L-- compare result to Kernel and Goal
+    L-- if aligned and complete -> exit loop
+    L-- if misaligned or incomplete -> Stage 1
+    L-- future changes start a new KSL loop
+```
 
 ---
 
@@ -26,42 +47,67 @@ Returning to Stage 1 is not failure. It is how the map stays true.
 
 ## Purpose
 
-Surface and lock the Kernel before building.
+Stage 1 finds the smallest true Kernel, defines the Goal, defines the Scope, and lays out the Phase Spine before any build work begins.
 
-The Kernel is the smallest true statement of the work:
+## Kernel
 
-```text
-What are we doing?
-Why are we doing it?
-What must be true when it is done?
-```
+The Kernel is the most reduced single-scope statement of outcome intent.
 
-## Stage 1 outputs
+It should be short enough to hold in one breath.
 
-Stage 1 produces:
-
-1. Kernel statement
-2. scope boundary
-3. goal definition
-4. constraints
-5. current known unknowns
-6. Phased Step Spine Traversal map
-7. return conditions
-8. completion criteria
-
-## Stage 1 questions
+Examples:
 
 ```text
-What is the actual objective?
-What is in scope?
-What is out of scope?
-What does done mean?
-What would count as drift?
-What would count as failure?
-What are the phases?
-What are the steps inside each phase?
-What must be checked before building?
+Does X.
+Exposes Y.
+Produces Z.
+Records agent runs.
+Shows replay state.
+Exports proof.
 ```
+
+The Kernel is not the full plan.
+The Kernel is not the feature list.
+The Kernel is not the emotional explanation.
+
+The Kernel is the irreducible outcome-intent statement.
+
+## Goal
+
+The Goal is the more detailed intent statement.
+
+It explains the Kernel enough to guide the work:
+
+```text
+Kernel: Exports proof.
+Goal: Export a recorded AFR run into a readable evidence bundle containing run metadata, ordered events, checkpoints, errors, replay context, and known limitations.
+```
+
+## Scope
+
+Scope defines what is inside and outside the current loop.
+
+```text
+In scope: what this loop is allowed to touch.
+Out of scope: what this loop must not expand into.
+```
+
+## Phase Spine
+
+Stage 1 lays out the Stage 2 traversal map.
+
+Only three structural levels are required:
+
+```text
+Stage
+  L-- Phase
+      L-- Step
+```
+
+A Phase is an overarching phase goal that brings the work closer to completion.
+A Step is the action space inside that Phase.
+
+No deeper formal scope is required by default. Extra detail can live inside the Step text when needed, but it does not become a new KSL level.
 
 ## Stage 1 lock condition
 
@@ -69,50 +115,54 @@ Stage 1 is locked only when Core can say:
 
 ```text
 This is the Kernel.
-This is the scope.
-This is the goal.
-This is the spine we will walk.
+This is the Goal.
+This is the Scope.
+This is the Phase Spine.
 This is how we know when to return and remap.
 ```
 
 ---
 
-# Stage 2 — Build Stage: Walk the Spine
+# Stage 2 — Build Stage / Walk the Spine
 
 ## Purpose
 
-Execute the Phased Step Spine Traversal map.
+Stage 2 walks the mapped Phase Spine.
 
-Stage 2 is where work is built, changed, repaired, packaged, or tested.
+It builds, changes, repairs, packages, tests, or documents according to the map created in Stage 1.
 
-## Phase structure
-
-A phase is an overarching goal that brings the work closer to completion.
+## Stage 2 structure
 
 ```text
-Phase: overarching phase goal
-  Step: one required movement inside the phase
-    Substep: optional smaller movement
-      Detail: optional deeper action when needed
+* Stage 2: Build Stage / Walk the Spine
+|   L-- Phase 1: overarching phase goal
+|       L-- Step 1: action space
+|       L-- Step 2: action space
+|
+|   L-- Phase 2: overarching phase goal
+|       L-- Step 1: action space
+|       L-- Step 2: action space
 ```
 
-A phase may contain one step.
-A phase may contain many steps.
-The size depends on the thing.
+A Phase may have one Step.
+A Phase may have many Steps.
+The size depends on the work.
 
-## Stage 2 execution rule
+## Stage 2 rule
 
-Walk the mapped phases in order unless the map becomes wrong.
+Walk the spine in order unless the map becomes wrong.
 
-For each phase:
+For each Phase:
 
-1. restate the phase goal
-2. walk the steps
-3. record evidence/output
-4. check for blocker/drift/failure
+```text
+1. restate the Phase goal
+2. walk the Steps
+3. record output/evidence
+4. check for blocker, drift, or map failure
 5. continue only if the map still holds
+```
 
-## Stage 2 blocker rule
+## Blocker return
 
 If a blocker surfaces:
 
@@ -123,159 +173,171 @@ Remap or fix the map.
 Reenter Stage 2 where necessary.
 ```
 
-Do not brute-force through a broken map.
-
-## Stage 2 drift rule
+## Drift return
 
 If the work starts solving a different problem than the Kernel:
 
 ```text
 Stop.
 Return to Stage 1.
-Compare current work against the Kernel.
-Decide whether to restore the original map or intentionally define a new Kernel.
+Compare the work against the Kernel and Goal.
+Either restore the original map or intentionally define a new Kernel.
+```
+
+## Map failure return
+
+If the Phase Spine was wrong or incomplete:
+
+```text
+Stop.
+Return to Stage 1.
+Repair the Phase Spine.
+Reenter the correct Stage 2 point only after the map is repaired.
 ```
 
 ---
 
-# Stage 3 — Architecture Break, Alignment Check, Bolster, Version
+# Stage 3 — Architecture Crush and Repair
 
 ## Purpose
 
-Break-check what was created, compare it against the Kernel, repair cracks, and decide whether the work can complete or must reenter Stage 1.
+Stage 3 crush-checks what was created.
 
-Stage 3 is not decoration. It is where weak work gets exposed before it ships.
+It tests whether the work holds against:
 
-## Stage 3 checks
+```text
+Kernel
+Goal
+Scope
+architecture
+operator usability
+evidence/proof
+known limitations
+```
 
-### 1. Architecture break
+Stage 3 decides whether the loop exits, repairs, or returns to Stage 1.
+
+## Crush check
 
 Ask:
 
 ```text
-Does this crumble under inspection?
-What assumptions fail?
-What dependency breaks?
-What path is confusing?
-What output is unsupported?
-What user path is ugly or unusable?
+Does the created thing actually satisfy the Kernel?
+Does it satisfy the Goal?
+Did the Scope drift?
+Does the architecture hold?
+What crumbles under use?
+What cracks but still holds?
+What is confusing?
+What is unsupported?
+What needs proof?
+What needs repair?
 ```
 
-### 2. If it crumbles
+## If it crumbles
 
 ```text
 Return to Stage 1.
-Map the fix.
-Walk the fix through Stage 2.
+Map the repair.
+Walk the repair through Stage 2.
 Return to Stage 3.
 ```
 
-### 3. If it holds
+## If it holds but has cracks
 
-Bolster the cracks:
+Repair or bolster the cracks:
 
 ```text
-document weak points
 patch confusing paths
+document weak points
 add missing proof
 tighten language
 record limitations
-version the result
+simplify where possible
 ```
 
-### 4. Kernel alignment check
+Then check again.
 
-Compare what was created against the Kernel:
+## Alignment check
+
+Compare created output to the Kernel and Goal:
 
 ```text
-Did we build the thing we said we were building?
-Did the goal drift?
-Did scope creep enter?
-Did the output satisfy the original completion criteria?
-What claim is unsupported?
-What needs evidence?
+Kernel: did the work produce the reduced outcome intent?
+Goal: did the work satisfy the detailed intent statement?
+Scope: did the work stay inside the loop boundary?
 ```
 
-### 5. Completion or return
+## Exit condition
 
-If aligned:
+If the Kernel and Goal are good, and Stage 3 holds:
 
 ```text
-Complete the version.
-Record the version.
-Return to Stage 1 for the next version or next Kernel.
+Exit the loop.
+Record/version the result.
+Do not keep working inside the same loop.
 ```
 
-If misaligned, failed, incomplete, or needing repair:
+## Future-change rule
+
+Any future change must be designed in KSL format.
+
+That means a future change does not casually reopen the old loop. It starts a new KSL pass:
 
 ```text
-Return to Stage 1.
-Map the fix walk.
-Reenter Stage 2 only after the map is corrected.
-```
-
----
-
-# Standard KSL loop
-
-```text
-Stage 1: Iterative Kernel Surfacing and Locking
-  L define Kernel
-  L define scope
-  L define goal
-  L map Phased Step Spine
-  L lock completion criteria
-
-Stage 2: Build Stage / Walk the Spine
-  L Phase: overarching phase goal
-      L Step
-          L Substep if needed
-              L Detail if needed
-  L if blocker/drift/failure surfaces -> Stage 1
-  L if map holds -> continue spine
-
-Stage 3: Architecture Break and Alignment Check
-  L break-check architecture
-  L if crumbles -> Stage 1
-  L if holds -> bolster cracks
-  L compare output to Kernel
-  L if aligned -> complete/version
-  L if not aligned or needs fix -> Stage 1
-  L next version always reenters Stage 1
+new Kernel or same Kernel with new Goal
+new Scope
+new Phase Spine
+Stage 2 walk
+Stage 3 crush and repair
+exit if aligned
 ```
 
 ---
 
-# Failure language
-
-Use direct failure language:
+# Standard failure terms
 
 ```text
-BLOCKER: map cannot continue.
-DRIFT: output no longer matches Kernel.
+BLOCKER: work cannot continue with the current map.
+DRIFT: output no longer matches Kernel or Goal.
+MAP FAILURE: Phase Spine is wrong, missing, or misleading.
 CRACK: architecture holds but has weak points.
-CRUMBLE: architecture fails inspection.
-FIX WALK: a mapped repair pass through Stage 1 -> Stage 2 -> Stage 3.
-VERSION RETURN: completed work reenters Stage 1 for the next version.
+CRUMBLE: architecture fails the crush check.
+REPAIR WALK: a mapped repair pass through Stage 1 -> Stage 2 -> Stage 3.
+LOOP EXIT: Kernel and Goal are satisfied; result is recorded/versioned.
+NEW KSL PASS: future work starts from Stage 1 again.
 ```
 
 ---
 
-# Core review questions
+# Compact form
 
-Core should edit this draft by answering:
-
-1. Is `Iterative Kernel Surfacing and Locking` the exact Stage 1 name?
-2. Is `Build Stage: Walk the Spine` the exact Stage 2 name?
-3. Is `Architecture Break` the exact Stage 3 name, or should it be `Architecture Break and Bolster`?
-4. Should `Kernel` include emotional/mission intent, or only objective/scope/goal?
-5. Should every version return to Stage 1 automatically, even for tiny patch releases?
-6. What words should be forbidden because they flatten the system?
+```text
+* Stage 1: Iterative Kernel Surfacing and Locking
+|   L-- Kernel: most reduced single-scope outcome intent
+|   L-- Goal: detailed intent statement
+|   L-- Scope: current loop boundary
+|   L-- Phase Spine: Stage -> Phase -> Step
+|
+* Stage 2: Build Stage / Walk the Spine
+|   L-- Phase: overarching phase goal
+|       L-- Step: action space
+|   L-- blocker/drift/map failure returns to Stage 1
+|
+* Stage 3: Architecture Crush and Repair
+    L-- crush-check result against Kernel, Goal, Scope
+    L-- if crumble -> Stage 1
+    L-- if crack -> repair/bolster/check again
+    L-- if aligned -> exit loop and version
+    L-- future changes require new KSL pass
+```
 
 ---
 
-# Current draft status
+# Core review points still open
 
-This is the first standardized KSL workflow draft based on Core's June 15, 2026 instruction.
+1. Confirm exact Stage 3 name: `Architecture Crush and Repair`.
+2. Confirm whether `Kernel` should always be written in verb form: `Does X`, `Exposes Y`, `Produces Z`.
+3. Confirm whether `Phase` and `Step` are enough for all public docs, with extra detail kept informal inside Step text.
 
-Do not treat this as final until Core reviews and edits it.
+Current draft status: revised from Core's June 15, 2026 edits. Not final until Core accepts it.
