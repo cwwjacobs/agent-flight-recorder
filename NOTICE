@@ -1,8 +1,8 @@
 Agent Flight Recorder
-Copyright (c) 2026 Corey J. (Terminus Protocol). All rights reserved.
+Copyright (c) 2026 Terminus Protocol
 
-This product is proprietary software licensed under the terms in LICENSE.
+Agent Flight Recorder is released under the MIT License. See LICENSE.
 
-It depends, at runtime, on third-party open-source packages (FastAPI, Starlette,
-Uvicorn, Pydantic, httpx, React, and their dependencies), each distributed under
-its own license. No third-party source is included or modified here.
+This notice is intended to preserve Terminus Protocol attribution in source distributions and release materials.
+
+This project depends, at runtime or development time, on third-party open-source packages including FastAPI, Starlette, Uvicorn, Pydantic, httpx, React, and their dependencies. Each third-party dependency is distributed under its own license.
