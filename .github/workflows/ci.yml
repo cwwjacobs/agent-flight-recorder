@@ -16,7 +16,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install backend, SDK, CLI
-        run: pip install -e ./sdk -e ./cli -e './backend[dev]'
+        run: pip install --constraint backend/requirements.txt -e ./sdk -e ./cli -e './backend[dev]'
       - name: Run test suite
         run: python -m pytest backend/tests -q
 

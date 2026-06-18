@@ -10,14 +10,18 @@ Readiness Phase 01 and the remaining risk to address in later phases.
 - `backend/pyproject.toml` remains the authoritative source of dependency
   metadata and supported version ranges for setuptools.
 - `backend/requirements.txt` pins the direct runtime and dev dependencies to
-  exact versions currently installed in `.venv`:
+  exact versions verified for this repair, plus the explicit AnyIO
+  compatibility constraint used by the test transport:
   - `fastapi==0.137.1`
   - `uvicorn==0.49.0`
   - `pytest==9.1.0`
   - `httpx==0.28.1`
+  - `httpx2==2.4.0`
+  - `anyio==4.13.0`
 
-This gives CI, Docker, and fresh installs a reproducible starting point without
-pretending to have a full cryptographic lockfile.
+The Docker build, CI workflow, and `make install` all consume this file through
+pip's `--constraint` option. This constrains declared dependencies without
+pretending to provide a complete cryptographic lockfile.
 
 ### 2. Dockerfile base-image pinning
 
@@ -50,7 +54,7 @@ Pinned actions:
 
 1. Activate a clean Python virtual environment.
 2. Install the backend with its dev extras:
-   `pip install -e './backend[dev]'`
+   `pip install --constraint backend/requirements.txt -e './backend[dev]'`
 3. Run the test suite:
    `python -m pytest backend/tests -q`
 4. Copy the installed versions of the direct dependencies into
@@ -62,8 +66,8 @@ Pinned actions:
 - **No hash verification**: `requirements.txt` pins by version, not by package
   hash. A future improvement is to adopt a lock tool (e.g., `pip-compile`,
   Poetry, or `uv`) and commit a generated lockfile with hashes.
-- **No transitive lock**: Only direct dependencies are pinned. Transitive
-  packages can still drift when the lockfile is regenerated.
+- **No complete transitive lock**: Direct dependencies and one compatibility
+  dependency are pinned. Other transitive packages can still drift.
 - **Docker digest pinning**: Base images are pinned to patch-version tags, not
   immutable SHA digests. The next step is to switch to digest references such as
   `node:20.19.3-slim@sha256:...` and `python:3.12.13-slim@sha256:...` after

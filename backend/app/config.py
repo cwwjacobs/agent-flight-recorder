@@ -11,6 +11,8 @@ from pathlib import Path
 
 DEFAULT_DB_PATH = "afr.db"
 DEFAULT_PORT = 8700
+DEFAULT_REPLAY_MAX_EVENTS = 10_000
+DEFAULT_REPLAY_TIMEOUT_SECONDS = 30.0
 
 
 def db_path() -> str:
@@ -92,26 +94,32 @@ def replay_enabled() -> bool:
     )
 
 
-def replay_max_events() -> int | None:
+def replay_max_events() -> int:
     """Maximum number of tool events a replay plan may contain.
 
     Falls back to ``AFR_REPLAY_MAX_OPERATIONS`` for backward compatibility.
     """
     raw = os.environ.get("AFR_REPLAY_MAX_EVENTS") or os.environ.get("AFR_REPLAY_MAX_OPERATIONS")
     if raw is None:
-        return None
+        return DEFAULT_REPLAY_MAX_EVENTS
     raw = raw.strip()
     if not raw:
-        return None
-    return int(raw)
+        return DEFAULT_REPLAY_MAX_EVENTS
+    value = int(raw)
+    if value <= 0:
+        raise ValueError("AFR_REPLAY_MAX_EVENTS must be a positive integer")
+    return value
 
 
-def replay_timeout_seconds() -> float | None:
+def replay_timeout_seconds() -> float:
     """Per-replay wall-clock timeout in seconds."""
     raw = os.environ.get("AFR_REPLAY_TIMEOUT_SECONDS")
     if raw is None:
-        return None
+        return DEFAULT_REPLAY_TIMEOUT_SECONDS
     raw = raw.strip()
     if not raw:
-        return None
-    return float(raw)
+        return DEFAULT_REPLAY_TIMEOUT_SECONDS
+    value = float(raw)
+    if value <= 0:
+        raise ValueError("AFR_REPLAY_TIMEOUT_SECONDS must be positive")
+    return value

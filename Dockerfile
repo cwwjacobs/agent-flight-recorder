@@ -20,8 +20,9 @@ FROM python:3.12.13-slim
 WORKDIR /app
 
 COPY backend/pyproject.toml backend/pyproject.toml
+COPY backend/requirements.txt backend/requirements.txt
 COPY backend/app backend/app
-RUN pip install --no-cache-dir ./backend
+RUN pip install --no-cache-dir --constraint backend/requirements.txt ./backend
 
 COPY --from=ui-build /build/dist /app/ui-dist
 

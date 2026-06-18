@@ -24,3 +24,7 @@ uvicorn==0.49.0
 # Dev / test dependencies
 pytest==9.1.0
 httpx==0.28.1
+httpx2==2.4.0
+
+# Explicit compatibility constraint used by FastAPI/Starlette test transports.
+anyio==4.13.0

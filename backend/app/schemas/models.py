@@ -16,6 +16,10 @@ EventType = Literal[
     "replay_disabled",
     "replay_failed",
     "replay_limit_exhausted",
+    "replay_rejected",
+    "replay_started",
+    "replay_action",
+    "replay_completed",
 ]
 EVENT_TYPES: tuple[str, ...] = (
     "model_call",
@@ -27,6 +31,10 @@ EVENT_TYPES: tuple[str, ...] = (
     "replay_disabled",
     "replay_failed",
     "replay_limit_exhausted",
+    "replay_rejected",
+    "replay_started",
+    "replay_action",
+    "replay_completed",
 )
 
 RunStatus = Literal["running", "completed", "failed"]

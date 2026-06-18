@@ -20,6 +20,7 @@ def isolated_db(tmp_path, monkeypatch):
         "AFR_REPLAY_ENABLED",
         "AFR_REPLAY_MAX_EVENTS",
         "AFR_REPLAY_MAX_OPERATIONS",
+        "AFR_REPLAY_MAX_STEPS",
         "AFR_REPLAY_TIMEOUT_SECONDS",
     ):
         monkeypatch.delenv(var, raising=False)
