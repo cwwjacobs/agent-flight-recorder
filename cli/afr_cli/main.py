@@ -255,6 +255,9 @@ def cmd_replay(args: argparse.Namespace) -> None:
     if args.json:
         emit_json(result)
         return
+    if result.get("disabled"):
+        print(f"replay disabled for run {short(run_id)}: {result.get('reason')}")
+        return
     ticket = result["ticket"]
     print(f"replay ticket for run {short(run_id)} @ checkpoint {short(checkpoint_id)}")
     print(f"  label   : {ticket.get('label') or '-'}")

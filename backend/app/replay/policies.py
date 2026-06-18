@@ -24,8 +24,10 @@ gated tools) ever executes a side-effecting tool.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
+from app import config
 from app.storage import repo
 
 POLICY_SAFE = "safe"
@@ -48,6 +50,16 @@ ACTION_ALLOW = "allow"
 ACTION_MOCK = "mock"
 ACTION_SKIP = "skip"
 ACTION_BLOCK = "block"
+
+
+class ReplayLimitExhausted(Exception):
+    """Raised when a replay plan cannot be produced because it exceeds a
+    configured execution bound (event count or wall-clock timeout)."""
+
+    def __init__(self, reason: str, event_id: str | None = None):
+        super().__init__(reason)
+        self.reason = reason
+        self.event_id = event_id
 
 
 def decide(policy: str, mode: str, approved: bool = False) -> str:
@@ -77,12 +89,29 @@ def build_tool_plan(
       plan          {tool: {"policy": ..., "action": ...}}
       mock_results  {tool: <last successful recorded result>} for tools whose
                     action is "mock" — record/replay-style mocking for free.
+
+    Honors ``AFR_REPLAY_MAX_EVENTS`` / ``AFR_REPLAY_MAX_OPERATIONS`` and
+    ``AFR_REPLAY_TIMEOUT_SECONDS``. If the recorded tool call count exceeds the
+    bound, or if planning takes longer than the configured timeout, this raises
+    :class:`ReplayLimitExhausted`.
     """
     tool_events = repo.list_events(run_id, event_type="tool_call", limit=1_000_000)
+
+    max_events = config.replay_max_events()
+    if max_events is not None and len(tool_events) > max_events:
+        raise ReplayLimitExhausted(
+            f"tool events ({len(tool_events)}) exceeds max_events ({max_events})"
+        )
+
+    timeout_seconds = config.replay_timeout_seconds()
+    start = time.monotonic()
 
     policies: dict[str, str] = {}
     last_results: dict[str, Any] = {}
     for event in tool_events:
+        if timeout_seconds is not None and (time.monotonic() - start) > timeout_seconds:
+            raise ReplayLimitExhausted("timeout")
+
         payload = event.get("payload") or {}
         tool = str(payload.get("tool") or event.get("name") or "unknown_tool")
         recorded_policy = payload.get("policy")

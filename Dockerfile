@@ -5,14 +5,18 @@
 # Stage 1 builds the web UI; stage 2 runs FastAPI and serves the UI as
 # static files. SQLite lives on the /data volume.
 
-FROM node:20-slim AS ui-build
+# Pin to patch-version tag. Digest pinning is the next step; tracked in
+# docs/dependency-integrity.md.
+FROM node:20.19.3-slim AS ui-build
 WORKDIR /build
 COPY ui/package.json ui/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY ui/ ./
 RUN npm run build
 
-FROM python:3.12-slim
+# Pin to patch-version tag. Digest pinning is the next step; tracked in
+# docs/dependency-integrity.md.
+FROM python:3.12.13-slim
 WORKDIR /app
 
 COPY backend/pyproject.toml backend/pyproject.toml

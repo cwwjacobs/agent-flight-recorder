@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+import hashlib
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+API = os.environ.get("AFR_API_URL", "http://127.0.0.1:8700").rstrip("/")
+TOKEN = os.environ.get("AFR_API_TOKEN")
+
+KIMI = os.environ.get("KIMI_BIN") or "/home/terminus-protocol/.kimi-code/bin/kimi"
+if not os.path.exists(KIMI):
+    KIMI = shutil.which("kimi") or KIMI
+
+if not KIMI or not os.path.exists(KIMI):
+    print("Could not find Kimi Code. Set KIMI_BIN=/home/terminus-protocol/.kimi-code/bin/kimi", file=sys.stderr)
+    sys.exit(127)
+
+
+def post(path, body):
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        API + path,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    if TOKEN:
+        req.add_header("Authorization", f"Bearer {TOKEN}")
+    with urllib.request.urlopen(req) as r:
+        raw = r.read()
+        return json.loads(raw.decode("utf-8")) if raw else {}
+
+
+def sha256_file(path):
+    path = Path(path)
+    if not path.exists():
+        return None
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def event(run_id, event_type, name, payload):
+    post(
+        f"/runs/{run_id}/events",
+        {
+            "event_type": event_type,
+            "name": name,
+            "payload": payload,
+        },
+    )
+
+
+def run_kimi(cmd, transcript):
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+
+    if shutil.which("script"):
+        return subprocess.run(
+            ["script", "-q", "-e", "-c", shlex.join(cmd), str(transcript)]
+        ).returncode
+
+    with transcript.open("wb") as f:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        assert proc.stdout is not None
+        for chunk in iter(lambda: proc.stdout.read(4096), b""):
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+            f.write(chunk)
+        return proc.wait()
+
+
+def main():
+    argv = sys.argv[1:]
+    cmd = [KIMI, *argv]
+
+    run_name = "kimi-" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+
+    run = post(
+        "/runs",
+        {
+            "name": run_name,
+            "metadata": {
+                "agent": "kimi",
+                "wrapper": "afr-kimi",
+                "cwd": os.getcwd(),
+                "binary": KIMI,
+                "argv": argv,
+            },
+        },
+    )
+
+    run_id = run["id"]
+    log_dir = Path(".afr") / "kimi" / run_id
+    transcript = log_dir / "terminal-transcript.txt"
+
+    start = time.perf_counter()
+
+    event(
+        run_id,
+        "log",
+        "kimi_session_start",
+        {
+            "cmd": cmd,
+            "cwd": os.getcwd(),
+            "transcript": str(transcript),
+        },
+    )
+
+    rc = run_kimi(cmd, transcript)
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    transcript_sha = sha256_file(transcript)
+
+    event(
+        run_id,
+        "tool_call",
+        "kimi_cli_session",
+        {
+            "tool": "kimi-code",
+            "args": argv,
+            "status": "ok" if rc == 0 else "error",
+            "duration_ms": duration_ms,
+            "policy": "side_effecting",
+            "result": {
+                "exit_code": rc,
+                "transcript": str(transcript),
+                "transcript_sha256": transcript_sha,
+                "raw_transcript_is_sensitive": True,
+            },
+        },
+    )
+
+    post(
+        f"/runs/{run_id}/checkpoint",
+        {
+            "label": "after-kimi",
+            "state": {
+                "exit_code": rc,
+                "transcript": str(transcript),
+                "transcript_sha256": transcript_sha,
+            },
+        },
+    )
+
+    if rc != 0:
+        event(
+            run_id,
+            "error",
+            "kimi_exit_nonzero",
+            {
+                "exit_code": rc,
+                "transcript": str(transcript),
+            },
+        )
+
+    post(
+        f"/runs/{run_id}/end",
+        {
+            "status": "completed" if rc == 0 else "failed",
+        },
+    )
+
+    print()
+    print(f"AFR run: {run_id}")
+    print(f"Transcript: {transcript}")
+
+    sys.exit(rc)
+
+
+if __name__ == "__main__":
+    main()

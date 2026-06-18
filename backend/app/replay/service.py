@@ -9,11 +9,20 @@ tool the plan mocks). Free mode is restricted to the inherently safe modes
 
 from __future__ import annotations
 
+from app import config
 from app.engine import checkpoints as ckpt_engine
 from app.engine import events as event_engine
 from app.license import ensure_premium
 from app.replay.contract import ReplayTicket
-from app.replay.policies import FREE_MODES, MODES, build_tool_plan
+from app.replay.policies import FREE_MODES, MODES, ReplayLimitExhausted, build_tool_plan
+
+
+class ReplayDisabled(Exception):
+    """Raised when replay has been disabled at runtime via configuration."""
+
+    def __init__(self, message: str, event_id: str | None = None):
+        super().__init__(message)
+        self.event_id = event_id
 
 
 def prepare_replay(
@@ -30,13 +39,62 @@ def prepare_replay(
     state_doc = ckpt_engine.state_at_checkpoint(run_id, checkpoint_id)
     checkpoint = state_doc["checkpoint"]
 
-    tool_plan, mock_results = build_tool_plan(run_id, mode, approved)
+    if not config.replay_enabled():
+        disabled_event = event_engine.append_event(
+            run_id,
+            "replay_disabled",
+            name="replay_disabled",
+            payload={
+                "actor": "operator",
+                "checkpoint_id": checkpoint_id,
+                "mode": mode,
+                "approved": approved,
+            },
+        )
+        raise ReplayDisabled(
+            "Replay is disabled by the operator.",
+            event_id=disabled_event["id"],
+        )
+
+    try:
+        tool_plan, mock_results = build_tool_plan(run_id, mode, approved)
+    except ReplayLimitExhausted as exc:
+        limit_event = event_engine.append_event(
+            run_id,
+            "replay_limit_exhausted",
+            name="replay_limit_exhausted",
+            payload={
+                "actor": "system",
+                "reason": exc.reason,
+                "checkpoint_id": checkpoint_id,
+                "mode": mode,
+            },
+        )
+        raise ReplayLimitExhausted(
+            reason=exc.reason,
+            event_id=limit_event["id"],
+        ) from exc
+    except Exception as exc:
+        event_engine.append_event(
+            run_id,
+            "replay_failed",
+            name="replay_failed",
+            payload={
+                "actor": "system",
+                "exception": repr(exc),
+                "message": str(exc),
+                "checkpoint_id": checkpoint_id,
+                "mode": mode,
+            },
+        )
+        raise
 
     replay_event = event_engine.append_event(
         run_id,
         "log",
         name="replay_requested",
         payload={
+            "actor": "replay",
             "checkpoint_id": checkpoint_id,
             "label": checkpoint.get("label"),
             "mode": mode,

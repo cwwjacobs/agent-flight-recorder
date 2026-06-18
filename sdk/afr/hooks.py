@@ -17,12 +17,20 @@ the ticket back.
 
 from __future__ import annotations
 
+import concurrent.futures
 import importlib
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from afr.client import AFRClient
-from afr.types import MODE_DRY_RUN
+from afr.context import current_run
+from afr.types import (
+    EVENT_REPLAY_DISABLED,
+    EVENT_REPLAY_FAILED,
+    EVENT_REPLAY_LIMIT_EXHAUSTED,
+    MODE_DRY_RUN,
+)
 
 ResumeHandler = Callable[["ReplayContext"], Any]
 
@@ -39,6 +47,54 @@ class ToolBlockedError(RuntimeError):
             f"tool {tool!r} is blocked under replay mode {mode!r} — it requires "
             "approval; re-request the replay with approved=true to allow it"
         )
+
+
+class ReplayLimitExhausted(RuntimeError):
+    """Raised when a replay exceeds operator-configured bounds."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(f"replay limit exhausted: {reason}")
+
+
+def _replay_enabled() -> bool:
+    """Read the runtime kill-switch (default off)."""
+    return os.environ.get("AFR_REPLAY_ENABLED", "").lower() in ("1", "true", "yes")
+
+
+def _replay_timeout_seconds() -> float | None:
+    raw = os.environ.get("AFR_REPLAY_TIMEOUT_SECONDS")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _replay_max_steps() -> int | None:
+    raw = os.environ.get("AFR_REPLAY_MAX_STEPS")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _log_replay_event(
+    client: AFRClient | None,
+    run_id: str,
+    event_type: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Emit a replay-lifecycle event to the active run or directly to the backend."""
+    run = current_run()
+    if run is not None:
+        return run.log_event(event_type, name=event_type, payload=payload)
+    if client is not None:
+        return client.append_event(run_id, event_type, name=event_type, payload=payload)
+    return {"event_id": None}
 
 
 @dataclass
@@ -58,6 +114,7 @@ class ReplayContext:
     ticket: dict[str, Any] = field(default_factory=dict)
     tool_plan: dict[str, dict[str, str]] = field(default_factory=dict)
     mock_results: dict[str, Any] = field(default_factory=dict)
+    steps: int = field(default=0, init=False, repr=False)
 
     def action_for(self, tool: str) -> str:
         """'allow' | 'mock' | 'skip' | 'block' for a tool under this replay."""
@@ -88,6 +145,11 @@ class ReplayContext:
             skip   -> `default`, nothing executes
             block  -> raises ToolBlockedError
         """
+        self.steps += 1
+        max_steps = _replay_max_steps()
+        if max_steps is not None and self.steps > max_steps:
+            raise ReplayLimitExhausted("max_steps")
+
         action = self.action_for(tool)
         if action == "allow":
             return fn(*args, **kwargs)
@@ -143,6 +205,20 @@ def build_replay_context(ticket: dict[str, Any]) -> ReplayContext:
     )
 
 
+def _invoke_handler(handler: ResumeHandler, ctx: ReplayContext) -> Any:
+    """Invoke a resume handler, applying operator bounds."""
+    timeout = _replay_timeout_seconds()
+    if timeout is None:
+        return handler(ctx)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(handler, ctx)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError as exc:
+            raise ReplayLimitExhausted("timeout") from exc
+
+
 def replay(
     run_id: str,
     checkpoint_id: str,
@@ -160,22 +236,61 @@ def replay(
     """
     owns_client = client is None
     client = client or AFRClient(api_url)
+
+    if not _replay_enabled():
+        event = _log_replay_event(
+            client,
+            run_id,
+            EVENT_REPLAY_DISABLED,
+            {"actor": "replay", "reason": "replay disabled by operator"},
+        )
+        if owns_client:
+            client.close()
+        return {
+            "disabled": True,
+            "reason": "replay disabled by operator",
+            "handler_invoked": False,
+            "event_id": event.get("id") or event.get("event_id"),
+        }
+
     try:
         ticket = client.replay(run_id, checkpoint_id, mode=mode, **extra)
+
+        resolved: ResumeHandler | None
+        if isinstance(handler, str):
+            resolved = load_callable(handler)  # type: ignore[assignment]
+        else:
+            resolved = handler or get_resume_handler()
+
+        result: Any = None
+        invoked = False
+        if mode != MODE_DRY_RUN and resolved is not None:
+            ctx = build_replay_context(ticket)
+            try:
+                result = _invoke_handler(resolved, ctx)
+            except ReplayLimitExhausted as exc:
+                _log_replay_event(
+                    client,
+                    run_id,
+                    EVENT_REPLAY_LIMIT_EXHAUSTED,
+                    {"actor": "replay", "reason": exc.reason},
+                )
+                raise
+            except Exception as exc:
+                _log_replay_event(
+                    client,
+                    run_id,
+                    EVENT_REPLAY_FAILED,
+                    {
+                        "actor": "replay",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
+                raise
+            invoked = True
+
+        return {"ticket": ticket, "handler_result": result, "handler_invoked": invoked}
     finally:
         if owns_client:
             client.close()
-
-    resolved: ResumeHandler | None
-    if isinstance(handler, str):
-        resolved = load_callable(handler)  # type: ignore[assignment]
-    else:
-        resolved = handler or get_resume_handler()
-
-    result: Any = None
-    invoked = False
-    if mode != MODE_DRY_RUN and resolved is not None:
-        result = resolved(build_replay_context(ticket))
-        invoked = True
-
-    return {"ticket": ticket, "handler_result": result, "handler_invoked": invoked}

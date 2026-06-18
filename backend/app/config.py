@@ -73,3 +73,45 @@ def api_token() -> str | None:
     API route — strongly recommended for any non-loopback deployment."""
     tok = os.environ.get("AFR_API_TOKEN", "").strip()
     return tok or None
+
+
+# ---------------------------------------------------------------------------
+# replay readiness controls
+
+
+def replay_enabled() -> bool:
+    """Global runtime kill switch for replay. Default off.
+
+    Only the literal values ``true``, ``1``, ``yes``, and ``on`` enable replay.
+    """
+    return os.environ.get("AFR_REPLAY_ENABLED", "").strip().lower() in (
+        "true",
+        "1",
+        "yes",
+        "on",
+    )
+
+
+def replay_max_events() -> int | None:
+    """Maximum number of tool events a replay plan may contain.
+
+    Falls back to ``AFR_REPLAY_MAX_OPERATIONS`` for backward compatibility.
+    """
+    raw = os.environ.get("AFR_REPLAY_MAX_EVENTS") or os.environ.get("AFR_REPLAY_MAX_OPERATIONS")
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    return int(raw)
+
+
+def replay_timeout_seconds() -> float | None:
+    """Per-replay wall-clock timeout in seconds."""
+    raw = os.environ.get("AFR_REPLAY_TIMEOUT_SECONDS")
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    return float(raw)

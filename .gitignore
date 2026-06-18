@@ -29,3 +29,18 @@ exports/
 
 # NOTE: the root dist/ folder holds the committed MVP snapshot and is tracked;
 # only ui/dist/ (build output) is ignored above.
+
+# AFR local runtime artifacts
+.afr/
+exports/
+share/
+
+# Generated submission/package artifacts
+*.tar.gz
+benchflow_submission.zip
+kaggle_submission.tar.gz
+
+# Raw trace/transcript artifacts
+terminal-transcript.txt
+kimi-trace-*.json
+kimi-clean-*/

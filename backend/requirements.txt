@@ -1,0 +1,26 @@
+# MANUAL PIN FILE — NOT A CRYPTOGRAPHIC LOCKFILE
+#
+# This file pins the backend's direct runtime and dev dependencies to exact
+# versions that are known to work together. It is intended for reproducible
+# installs in CI, Docker, and fresh virtual environments.
+#
+# How to update:
+#   1. Bump the version in a clean virtual environment.
+#   2. Run the full backend test suite (python -m pytest backend/tests -q).
+#   3. Commit the updated version here.
+#
+# Remaining risk:
+#   - These pins are not hash-verified. A compromised PyPI account or MITM
+#     could still serve a malicious artifact for the pinned version.
+#   - Transitive dependencies are not locked. A fresh install may pull newer
+#     compatible transitive versions than the ones currently in .venv.
+#   - Automated lock generation (poetry.lock, uv.lock, etc.) is a future
+#     improvement. See docs/dependency-integrity.md for the full plan.
+
+# Runtime dependencies
+fastapi==0.137.1
+uvicorn==0.49.0
+
+# Dev / test dependencies
+pytest==9.1.0
+httpx==0.28.1
