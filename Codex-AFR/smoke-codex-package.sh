@@ -41,6 +41,11 @@ SECRET_PRIVATE_KEY="b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAA
 FAKE_CODEX="$TMP_DIR/fake-codex"
 cat > "$FAKE_CODEX" <<EOF
 #!/usr/bin/env bash
+CONFIG="\$CODEX_HOME/config.toml"
+grep -q '^\[\[hooks.SessionStart\]\]$' "\$CONFIG" || exit 90
+grep -q '^\[\[hooks.PostToolUse.hooks\]\]$' "\$CONFIG" || exit 91
+grep -q '^\[\[hooks.Stop.hooks\]\]$' "\$CONFIG" || exit 92
+if grep -q '^\[\[hooks\]\]$' "\$CONFIG"; then exit 93; fi
 echo "Fake Codex output for smoke test."
 echo "Task complete."
 echo "OPENAI_API_KEY=$SECRET_OPENAI_KEY"

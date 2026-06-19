@@ -32,7 +32,6 @@ OPENAI_API_KEY="sk-..." ./Codex-AFR/codexafr-harness --api-key
 
 - `SessionStart`
 - `PostToolUse`
-- `AfterAgent`
 - `Stop`
 
 The hooks point at `codexafr-hook-bridge.py`, which posts structured events to a small local HTTP receiver started by the launcher. Because Codex itself handles authentication via the user's saved account session, no `OPENAI_API_KEY` is needed.
@@ -78,6 +77,7 @@ Codex-AFR/
 
 The smoke test uses a fake `codex` binary and a throwaway backend database to verify:
 
+- generated hooks use the current nested Codex TOML schema
 - `codex_output_tail` event is recorded
 - idempotency of `afr-add-codex-output`
 - default sanitized package tarball contains only the redacted export and receipt

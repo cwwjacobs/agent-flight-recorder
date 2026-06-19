@@ -122,7 +122,6 @@ def _write_codex_config(codex_home: Path, bridge: Path, event_url: str) -> None:
     hooks = [
         ("SessionStart", "*"),
         ("PostToolUse", "*"),
-        ("AfterAgent", "*"),
         ("Stop", "*"),
     ]
 
@@ -131,9 +130,11 @@ def _write_codex_config(codex_home: Path, bridge: Path, event_url: str) -> None:
     lines = ["# Codex AFR hook configuration", ""]
     for event, matcher in hooks:
         lines.extend([
-            "[[hooks]]",
-            f'event = "{event}"',
+            f"[[hooks.{event}]]",
             f'matcher = "{matcher}"',
+            "",
+            f"[[hooks.{event}.hooks]]",
+            'type = "command"',
             f'command = "{bridge_cmd}"',
             "",
         ])
