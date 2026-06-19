@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+AFR_ROOT="${AFR_ROOT:-$REPO_ROOT}"
+AFR_URL="${AFR_API_URL:-http://127.0.0.1:8700}"
+KIMI_CODE="${KIMI_BIN:-/home/terminus-protocol/.kimi-code/bin/kimi}"
+WRAPPER="$SCRIPT_DIR/afr-kimi"
+ADD_OUTPUT="$SCRIPT_DIR/afr-add-kimi-output"
+PACKAGE="$SCRIPT_DIR/afr-package-latest-kimi"
+LOG_DIR="$AFR_ROOT/.afr/logs"
+SERVER_LOG="$LOG_DIR/afr-server.log"
+AFR_BIN="${AFR_BIN:-$REPO_ROOT/.venv/bin/afr}"
+
+mkdir -p "$LOG_DIR"
+
+if [[ ! -x "$KIMI_CODE" ]]; then
+  echo "Missing Kimi Code binary:" >&2
+  echo "  $KIMI_CODE" >&2
+  exit 127
+fi
+
+if [[ ! -x "$WRAPPER" ]]; then
+  echo "Missing AFR Kimi wrapper:" >&2
+  echo "  $WRAPPER" >&2
+  exit 127
+fi
+
+if ! curl -sf "$AFR_URL/health" >/dev/null; then
+  echo "AFR is not running. Starting AFR..."
+  cd "$AFR_ROOT"
+  nohup make serve > "$SERVER_LOG" 2>&1 &
+
+  for _ in $(seq 1 30); do
+    if curl -sf "$AFR_URL/health" >/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+fi
+
+if ! curl -sf "$AFR_URL/health" >/dev/null; then
+  echo "AFR failed to start." >&2
+  echo "Server log:" >&2
+  tail -80 "$SERVER_LOG" >&2 || true
+  exit 1
+fi
+
+cd "$AFR_ROOT"
+
+echo "AFR health:"
+curl -s "$AFR_URL/health"
+echo
+
+echo "Launching Kimi Code under AFR capture..."
+echo "Kimi Code: $KIMI_CODE"
+echo "Wrapper:   $WRAPPER"
+echo
+
+set +e
+tmp_out="$(mktemp "$LOG_DIR/kimi-wrapper-output.XXXXXX")"
+KIMI_BIN="$KIMI_CODE" AFR_API_URL="$AFR_URL" "$WRAPPER" "$@" 2>&1 | tee "$tmp_out"
+rc=${PIPESTATUS[0]}
+set -e
+
+run_id=""
+if [[ -f "$tmp_out" ]]; then
+  run_id="$(grep -m1 '^AFR run: ' "$tmp_out" | awk '{print $3}' || true)"
+  rm -f "$tmp_out"
+fi
+
+echo
+echo "Kimi Code exited with: $rc"
+echo
+
+if [[ $rc -eq 0 ]]; then
+  echo "Capturing Kimi output tail into AFR..."
+  if [[ -n "$run_id" ]]; then
+    "$ADD_OUTPUT" "$run_id" || rc=$?
+  else
+    "$ADD_OUTPUT" || rc=$?
+  fi
+
+  echo
+  echo "Building clean share package..."
+  if [[ -n "$run_id" ]]; then
+    "$PACKAGE" "$run_id" || rc=$?
+  else
+    "$PACKAGE" || rc=$?
+  fi
+else
+  echo "Kimi Code failed; skipping output-tail capture and clean packaging."
+fi
+
+echo
+echo "Recent AFR runs:"
+"$AFR_BIN" runs list --limit 5 || true
+
+echo
+exit "$rc"

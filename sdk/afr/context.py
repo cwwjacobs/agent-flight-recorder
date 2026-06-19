@@ -64,10 +64,17 @@ class RunContext:
     # -- logging ------------------------------------------------------------
 
     def log_event(
-        self, event_type: str, name: str | None = None, payload: dict | None = None
+        self,
+        event_type: str,
+        name: str | None = None,
+        payload: dict | None = None,
+        actor: str | None = None,
     ) -> dict:
+        event_payload = redaction.apply(jsonable(payload or {}))
+        if actor is not None:
+            event_payload["actor"] = actor
         return self.client.append_event(
-            self.run_id, event_type, name=name, payload=redaction.apply(jsonable(payload or {}))
+            self.run_id, event_type, name=name, payload=event_payload
         )
 
     def log_model(
@@ -81,6 +88,7 @@ class RunContext:
         error: str | None = None,
         duration_ms: float | None = None,
         name: str | None = None,
+        actor: str | None = None,
         **extra: Any,
     ) -> dict:
         payload = {
@@ -95,7 +103,9 @@ class RunContext:
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         payload.setdefault("status", status)
-        return self.log_event(EVENT_MODEL_CALL, name=name or model or "model_call", payload=payload)
+        return self.log_event(
+            EVENT_MODEL_CALL, name=name or model or "model_call", payload=payload, actor=actor
+        )
 
     def log_tool(
         self,
@@ -106,6 +116,7 @@ class RunContext:
         status: str = "ok",
         error: str | None = None,
         duration_ms: float | None = None,
+        actor: str | None = None,
         **extra: Any,
     ) -> dict:
         payload = {
@@ -119,26 +130,33 @@ class RunContext:
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         payload.setdefault("status", status)
-        return self.log_event(EVENT_TOOL_CALL, name=tool, payload=payload)
+        return self.log_event(EVENT_TOOL_CALL, name=tool, payload=payload, actor=actor)
 
-    def log_state(self, state: dict, mode: str = "replace", name: str | None = None) -> dict:
+    def log_state(
+        self, state: dict, mode: str = "replace", name: str | None = None, actor: str | None = None
+    ) -> dict:
         return self.log_event(
-            EVENT_STATE_SNAPSHOT, name=name or "state", payload={"state": state, "mode": mode}
+            EVENT_STATE_SNAPSHOT,
+            name=name or "state",
+            payload={"state": state, "mode": mode},
+            actor=actor,
         )
 
-    def log(self, message: str, level: str = "info", **data: Any) -> dict:
+    def log(self, message: str, level: str = "info", actor: str | None = None, **data: Any) -> dict:
         payload: dict[str, Any] = {"level": level, "message": message}
         if data:
             payload["data"] = data
-        return self.log_event(EVENT_LOG, name=level, payload=payload)
+        return self.log_event(EVENT_LOG, name=level, payload=payload, actor=actor)
 
-    def log_error(self, message: str, *, traceback: str | None = None, **data: Any) -> dict:
+    def log_error(
+        self, message: str, *, traceback: str | None = None, actor: str | None = None, **data: Any
+    ) -> dict:
         payload: dict[str, Any] = {"message": message}
         if traceback:
             payload["traceback"] = traceback
         if data:
             payload["data"] = data
-        return self.log_event(EVENT_ERROR, name="error", payload=payload)
+        return self.log_event(EVENT_ERROR, name="error", payload=payload, actor=actor)
 
     # -- checkpoints ----------------------------------------------------------
 

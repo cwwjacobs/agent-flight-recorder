@@ -23,6 +23,7 @@ from afr.client import AFRAPIError, AFRClient
 from afr.context import NoActiveRun, RunContext, current_run, require_run, start_run
 from afr.hooks import (
     ReplayContext,
+    ReplayLimitExhausted,
     ToolBlockedError,
     build_replay_context,
     clear_resume_handlers,
@@ -41,6 +42,7 @@ __all__ = [
     "AFRAPIError",
     "RunContext",
     "ReplayContext",
+    "ReplayLimitExhausted",
     "ToolBlockedError",
     "NoActiveRun",
     "start_run",

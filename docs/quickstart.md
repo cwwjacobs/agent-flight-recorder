@@ -14,7 +14,7 @@ Everything below is the no-Docker path.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e ./sdk -e ./cli -e './backend[dev]'
+.venv/bin/pip install --constraint backend/requirements.txt -e ./sdk -e ./cli -e './backend[dev]'
 # or: make install
 ```
 

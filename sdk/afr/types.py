@@ -15,6 +15,14 @@ EVENT_CHECKPOINT = "checkpoint"
 EVENT_LOG = "log"
 EVENT_ERROR = "error"
 
+EVENT_REPLAY_DISABLED = "replay_disabled"
+EVENT_REPLAY_FAILED = "replay_failed"
+EVENT_REPLAY_LIMIT_EXHAUSTED = "replay_limit_exhausted"
+EVENT_REPLAY_REJECTED = "replay_rejected"
+EVENT_REPLAY_STARTED = "replay_started"
+EVENT_REPLAY_ACTION = "replay_action"
+EVENT_REPLAY_COMPLETED = "replay_completed"
+
 EVENT_TYPES = (
     EVENT_MODEL_CALL,
     EVENT_TOOL_CALL,
@@ -22,6 +30,13 @@ EVENT_TYPES = (
     EVENT_CHECKPOINT,
     EVENT_LOG,
     EVENT_ERROR,
+    EVENT_REPLAY_DISABLED,
+    EVENT_REPLAY_FAILED,
+    EVENT_REPLAY_LIMIT_EXHAUSTED,
+    EVENT_REPLAY_REJECTED,
+    EVENT_REPLAY_STARTED,
+    EVENT_REPLAY_ACTION,
+    EVENT_REPLAY_COMPLETED,
 )
 
 # Replay modes. MVP treats these as advisory strings passed to your handler;

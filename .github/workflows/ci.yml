@@ -10,13 +10,13 @@ jobs:
     name: Python tests (3.12)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: "3.12"
           cache: pip
       - name: Install backend, SDK, CLI
-        run: pip install -e ./sdk -e ./cli -e './backend[dev]'
+        run: pip install --constraint backend/requirements.txt -e ./sdk -e ./cli -e './backend[dev]'
       - name: Run test suite
         run: python -m pytest backend/tests -q
 
@@ -27,8 +27,8 @@ jobs:
       run:
         working-directory: ui
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
           cache: npm

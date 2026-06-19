@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Append a tail-captured `kimi_output_tail` event to a completed AFR Kimi run.
+
+Usage:
+    afr-add-kimi-output [RUN_ID_OR_PREFIX] [--max-chars N]
+
+If no run identifier is given, the latest completed run whose metadata says
+`agent == "kimi"` is used. A short prefix (e.g. `3fc56270`) is resolved
+against completed Kimi runs.
+
+The event is idempotent: if a `kimi_output_tail` event already exists for the
+run, the script exits without adding a duplicate.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+DEFAULT_MAX_CHARS = 12000
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _api_url() -> str:
+    return os.environ.get("AFR_API_URL", "http://127.0.0.1:8700").rstrip("/")
+
+
+def _api_token() -> str | None:
+    tok = os.environ.get("AFR_API_TOKEN", "").strip()
+    return tok or None
+
+
+def _afr_root() -> Path:
+    return Path(os.environ.get("AFR_ROOT") or _repo_root())
+
+
+def api_request(path: str, method: str = "GET", body: dict | None = None) -> dict | list:
+    url = _api_url() + path
+    data = None
+    headers = {}
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    tok = _api_token()
+    if tok:
+        req.add_header("Authorization", f"Bearer {tok}")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read()
+        if not raw:
+            return {}
+        return json.loads(raw.decode("utf-8"))
+
+
+def api_get(path: str) -> dict | list:
+    return api_request(path, "GET")
+
+
+def api_post(path: str, body: dict) -> dict | list:
+    return api_request(path, "POST", body)
+
+
+def is_full_run_id(value: str) -> bool:
+    return len(value) == 36 and value.count("-") == 4
+
+
+def completed_kimi_runs(limit: int = 100) -> list[dict]:
+    runs = api_get(f"/runs?status=completed&limit={limit}")
+    if not isinstance(runs, list):
+        return []
+    return [r for r in runs if isinstance(r, dict) and r.get("metadata", {}).get("agent") == "kimi"]
+
+
+def resolve_run_id(value: str | None) -> str:
+    if value:
+        candidate = value.strip().lower()
+        if is_full_run_id(candidate):
+            return candidate
+        matches = [r["id"] for r in completed_kimi_runs() if str(r.get("id", "")).lower().startswith(candidate)]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            print(f"Ambiguous prefix {value!r} matches {len(matches)} completed Kimi runs.", file=sys.stderr)
+            sys.exit(1)
+        print(f"No completed Kimi run matches {value!r}.", file=sys.stderr)
+        sys.exit(1)
+
+    runs = completed_kimi_runs(limit=10)
+    if not runs:
+        print("No completed Kimi run found.", file=sys.stderr)
+        sys.exit(1)
+    return runs[0]["id"]
+
+
+def has_output_tail_event(run_id: str) -> bool:
+    # Filter to log events so the scan is bounded and deterministic.
+    events = api_get(f"/runs/{run_id}/events?event_type=log&limit=1000")
+    if not isinstance(events, list):
+        return False
+    for ev in events:
+        if isinstance(ev, dict) and ev.get("name") == "kimi_output_tail":
+            return True
+    return False
+
+
+def read_tail_text(path: Path, max_chars: int) -> tuple[str, bool]:
+    if not path.exists():
+        print(f"Transcript not found: {path}", file=sys.stderr)
+        sys.exit(1)
+    size = path.stat().st_size
+    if size == 0:
+        return "", False
+
+    # Over-read from the end so we can safely decode and still keep max_chars
+    # characters. Terminal transcripts are mostly ASCII escapes, so *4 is plenty.
+    chunk_bytes = min(size, max_chars * 4)
+    with path.open("rb") as f:
+        f.seek(size - chunk_bytes)
+        raw = f.read()
+
+    text = raw.decode("utf-8", errors="replace")
+    truncated = len(text) > max_chars
+    return text[-max_chars:] if truncated else text, truncated
+
+
+def add_output_tail_event(run_id: str, max_chars: int) -> None:
+    if has_output_tail_event(run_id):
+        print(f"Run {run_id} already has a kimi_output_tail event; skipping.")
+        return
+
+    transcript = _afr_root() / ".afr" / "kimi" / run_id / "terminal-transcript.txt"
+    tail_text, truncated = read_tail_text(transcript, max_chars)
+
+    payload = {
+        "capture_mode": "tail",
+        "max_chars": max_chars,
+        "truncated": truncated,
+        "raw_transcript_is_sensitive": True,
+        "transcript": str(transcript.resolve()),
+        "text": tail_text,
+    }
+
+    api_post(
+        f"/runs/{run_id}/events",
+        {
+            "event_type": "log",
+            "name": "kimi_output_tail",
+            "payload": payload,
+        },
+    )
+
+    print(f"Added kimi_output_tail event to run {run_id}")
+    print(f"  transcript: {transcript}")
+    print(f"  tail chars: {len(tail_text)} (truncated={truncated})")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Append a Kimi output-tail event to AFR.")
+    parser.add_argument("run_id", nargs="?", help="Run UUID or prefix (default: latest completed Kimi run)")
+    parser.add_argument(
+        "--max-chars",
+        type=int,
+        default=DEFAULT_MAX_CHARS,
+        help=f"Maximum tail characters to capture (default: {DEFAULT_MAX_CHARS})",
+    )
+    args = parser.parse_args()
+
+    try:
+        run_id = resolve_run_id(args.run_id)
+        add_output_tail_event(run_id, args.max_chars)
+    except urllib.error.HTTPError as exc:
+        print(f"AFR API error: {exc.code} {exc.reason}", file=sys.stderr)
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+            print(body, file=sys.stderr)
+        except Exception:
+            pass
+        return 1
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

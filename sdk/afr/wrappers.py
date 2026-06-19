@@ -61,10 +61,12 @@ def record_model_call(
                     status="error",
                     error=f"{type(exc).__name__}: {exc}",
                     duration_ms=round(duration_ms, 2),
+                    actor="wrapper",
                 )
                 run.log_error(
                     f"model call {func.__name__} failed: {exc}",
                     traceback=traceback.format_exc(),
+                    actor="wrapper",
                 )
                 raise
             duration_ms = (time.perf_counter() - started) * 1000
@@ -76,6 +78,7 @@ def record_model_call(
                 output=jsonable(result) if capture_result else None,
                 status="ok",
                 duration_ms=round(duration_ms, 2),
+                actor="wrapper",
             )
             return result
 
@@ -123,10 +126,13 @@ def record_tool_call(
                     status="error",
                     error=f"{type(exc).__name__}: {exc}",
                     duration_ms=round(duration_ms, 2),
+                    actor="wrapper",
                     **payload_extra,
                 )
                 run.log_error(
-                    f"tool {tool_name} failed: {exc}", traceback=traceback.format_exc()
+                    f"tool {tool_name} failed: {exc}",
+                    traceback=traceback.format_exc(),
+                    actor="wrapper",
                 )
                 raise
             duration_ms = (time.perf_counter() - started) * 1000
@@ -136,6 +142,7 @@ def record_tool_call(
                 result=jsonable(result) if capture_result else None,
                 status="ok",
                 duration_ms=round(duration_ms, 2),
+                actor="wrapper",
                 **payload_extra,
             )
             return result

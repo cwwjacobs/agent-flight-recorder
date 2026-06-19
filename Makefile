@@ -6,7 +6,7 @@ PIP := .venv/bin/pip
 install:        ## create venv and install backend, sdk, cli (editable) + test deps
 	python3 -m venv .venv
 	$(PIP) install --upgrade pip >/dev/null
-	$(PIP) install -e ./sdk -e ./cli -e './backend[dev]'
+	$(PIP) install --constraint backend/requirements.txt -e ./sdk -e ./cli -e './backend[dev]'
 
 serve:          ## run the backend on http://127.0.0.1:8700
 	cd backend && ../$(PY) -m app

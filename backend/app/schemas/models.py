@@ -6,7 +6,21 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-EventType = Literal["model_call", "tool_call", "state_snapshot", "checkpoint", "log", "error"]
+EventType = Literal[
+    "model_call",
+    "tool_call",
+    "state_snapshot",
+    "checkpoint",
+    "log",
+    "error",
+    "replay_disabled",
+    "replay_failed",
+    "replay_limit_exhausted",
+    "replay_rejected",
+    "replay_started",
+    "replay_action",
+    "replay_completed",
+]
 EVENT_TYPES: tuple[str, ...] = (
     "model_call",
     "tool_call",
@@ -14,6 +28,13 @@ EVENT_TYPES: tuple[str, ...] = (
     "checkpoint",
     "log",
     "error",
+    "replay_disabled",
+    "replay_failed",
+    "replay_limit_exhausted",
+    "replay_rejected",
+    "replay_started",
+    "replay_action",
+    "replay_completed",
 )
 
 RunStatus = Literal["running", "completed", "failed"]

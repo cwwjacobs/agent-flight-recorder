@@ -1,0 +1,621 @@
+#!/usr/bin/env python3
+"""Codex AFR launcher.
+
+Captures a Codex CLI session to the Agent Flight Recorder.  Supports two
+modes:
+
+  * account mode (default): runs Codex against the user's OpenAI account login
+    using Codex lifecycle hooks and a local event receiver.
+
+  * --api-key mode: runs Codex with an explicit OPENAI_API_KEY routed through
+    a local OpenAI-compatible proxy (codexafr-api-proxy) which logs model and
+    tool events directly to AFR.
+
+Env vars:
+  CODEX_BIN          Path to the codex binary (default: auto-detect)
+  AFR_API_URL        AFR API base URL (default: http://127.0.0.1:8700)
+  AFR_API_TOKEN      AFR bearer token (optional)
+  AFR_ROOT           Root directory for local AFR artefacts
+                     (default: directory containing this script)
+  OPENAI_API_KEY     Required in --api-key mode
+  OPENAI_API_BASE    Upstream API base used by the proxy
+                     (default: https://api.openai.com)
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import queue
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.error
+import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from typing import Any
+
+
+API = os.environ.get("AFR_API_URL", "http://127.0.0.1:8700").rstrip("/")
+TOKEN = os.environ.get("AFR_API_TOKEN")
+
+
+def _script_dir() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def _afr_root() -> Path:
+    return Path(os.environ.get("AFR_ROOT") or _script_dir()).resolve()
+
+
+def _find_codex_bin() -> str | None:
+    if os.environ.get("CODEX_BIN"):
+        return os.environ["CODEX_BIN"]
+    found = shutil.which("codex")
+    if found:
+        return found
+    for fallback in (
+        "/home/terminus-protocol/.codex/bin/codex",
+        "/usr/local/bin/codex",
+    ):
+        if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+            return fallback
+    return None
+
+
+def _sha256_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def api_post(path: str, body: dict) -> dict:
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        API + path,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    if TOKEN:
+        req.add_header("Authorization", f"Bearer {TOKEN}")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            raw = r.read()
+            return json.loads(raw.decode("utf-8")) if raw else {}
+    except urllib.error.HTTPError as exc:
+        try:
+            body_txt = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            body_txt = ""
+        raise RuntimeError(f"AFR API error {exc.code}: {exc.reason} {body_txt}") from exc
+
+
+def api_event(run_id: str, event_type: str, name: str, payload: dict) -> dict:
+    return api_post(
+        f"/runs/{run_id}/events",
+        {
+            "event_type": event_type,
+            "name": name,
+            "payload": payload,
+        },
+    )
+
+
+def _write_codex_config(codex_home: Path, bridge: Path, event_url: str) -> None:
+    """Write a minimal Codex config.toml registering AFR hooks."""
+    config_path = codex_home / "config.toml"
+
+    # The hook command receives Codex JSON on stdin and forwards it to the
+    # local receiver.  The launcher sets CODEX_AFR_EVENT_URL and
+    # CODEX_AFR_RUN_ID in Codex's environment so the bridge can reach us.
+    hooks = [
+        ("SessionStart", "*"),
+        ("PostToolUse", "*"),
+        ("AfterAgent", "*"),
+        ("Stop", "*"),
+    ]
+
+    bridge_cmd = f"{shlex.quote(sys.executable)} {shlex.quote(str(bridge))}"
+
+    lines = ["# Codex AFR hook configuration", ""]
+    for event, matcher in hooks:
+        lines.extend([
+            "[[hooks]]",
+            f'event = "{event}"',
+            f'matcher = "{matcher}"',
+            f'command = "{bridge_cmd}"',
+            "",
+        ])
+
+    config_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _copy_account_auth(codex_home: Path) -> None:
+    """Preserve OpenAI account login inside the isolated CODEX_HOME."""
+    home_auth = Path.home() / ".codex" / "auth.json"
+    if not home_auth.exists():
+        return
+    target = codex_home / "auth.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if target.exists() or target.is_symlink():
+            target.unlink()
+        target.symlink_to(home_auth)
+    except OSError:
+        shutil.copy2(home_auth, target)
+
+
+class _HookEventReceiver(BaseHTTPRequestHandler):
+    """Local HTTP receiver that ingests hook events from codexafr-hook-bridge."""
+
+    # Shared state, populated by the launcher before serve_forever starts.
+    run_id: str
+    event_queue: queue.Queue[dict]
+    stop_event: threading.Event
+
+    def log_message(self, fmt: str, *args: Any) -> None:
+        # Suppress default request logging noise.
+        pass
+
+    def do_POST(self) -> None:  # noqa: N802
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            raw = self.rfile.read(length).decode("utf-8", errors="replace")
+            payload = json.loads(raw) if raw else {}
+        except Exception:
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        self.event_queue.put(payload)
+        if payload.get("hook_event_name") == "Stop":
+            self.stop_event.set()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"ok":true}')
+
+
+def _start_hook_receiver(run_id: str) -> tuple[HTTPServer, int, queue.Queue[dict], threading.Event]:
+    """Start a threaded HTTP server on a free port to receive hook events."""
+    event_queue: queue.Queue[dict] = queue.Queue()
+    stop_event = threading.Event()
+
+    class _BoundHandler(_HookEventReceiver):
+        pass
+
+    _BoundHandler.run_id = run_id
+    _BoundHandler.event_queue = event_queue
+    _BoundHandler.stop_event = stop_event
+
+    server = HTTPServer(("127.0.0.1", 0), _BoundHandler)
+    port = server.server_address[1]
+
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, port, event_queue, stop_event
+
+
+def _run_codex_with_transcript(
+    cmd: list[str],
+    transcript: Path,
+    env: dict[str, str],
+) -> int:
+    """Run Codex and record a terminal transcript."""
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+
+    if shutil.which("script"):
+        # `script` is the most faithful terminal recorder.
+        return subprocess.run(
+            ["script", "-q", "-e", "-c", shlex.join(cmd), str(transcript)],
+            env=env,
+        ).returncode
+
+    # Fallback: pipe stdout/stderr to the transcript and the console.
+    with transcript.open("wb") as f:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env,
+        )
+        assert proc.stdout is not None
+        for chunk in iter(lambda: proc.stdout.read(4096), b""):
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+            f.write(chunk)
+        return proc.wait()
+
+
+def _drain_hook_events(
+    event_queue: queue.Queue[dict],
+    run_id: str,
+    timeout: float = 2.0,
+) -> None:
+    """Post any buffered hook events to AFR."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            ev = event_queue.get(timeout=0.1)
+        except queue.Empty:
+            break
+        _post_hook_event(run_id, ev)
+
+
+def _post_hook_event(run_id: str, ev: dict) -> None:
+    """Translate a hook event from the bridge into an AFR event."""
+    name = ev.get("hook_event_name")
+    if name == "SessionStart":
+        api_event(
+            run_id,
+            "log",
+            "codex_session_start",
+            {
+                "session_id": ev.get("session_id"),
+                "cwd": ev.get("cwd"),
+                "model": ev.get("model"),
+            },
+        )
+    elif name == "PostToolUse":
+        api_event(
+            run_id,
+            "tool_call",
+            "codex_tool_call",
+            {
+                "tool": ev.get("tool_name") or "codex_tool",
+                "args": ev.get("tool_input"),
+                "result": ev.get("tool_response"),
+                "tool_use_id": ev.get("tool_use_id"),
+                "status": "ok",
+                "policy": "side_effecting",
+            },
+        )
+    elif name == "AfterAgent":
+        model = ev.get("model")
+        raw = ev.get("raw_payload") or {}
+        if model:
+            api_event(
+                run_id,
+                "model_call",
+                "codex_agent_turn",
+                {
+                    "model": model,
+                    "provider": "openai",
+                    "input": raw.get("prompt"),
+                    "output": raw.get("response"),
+                    "status": "ok",
+                },
+            )
+        else:
+            api_event(
+                run_id,
+                "log",
+                "codex_agent_turn",
+                {
+                    "session_id": ev.get("session_id"),
+                    "turn_id": ev.get("turn_id"),
+                    "raw_payload": raw,
+                },
+            )
+
+
+def _finalize_run(
+    run_id: str,
+    rc: int,
+    transcript: Path,
+    duration_ms: float,
+    event_queue: queue.Queue[dict] | None,
+) -> None:
+    """Post the CLI session event, checkpoint, and end the run."""
+    if event_queue is not None:
+        _drain_hook_events(event_queue, run_id)
+
+    transcript_sha = _sha256_file(transcript)
+
+    api_event(
+        run_id,
+        "tool_call",
+        "codex_cli_session",
+        {
+            "tool": "codex",
+            "args": sys.argv[1:],
+            "status": "ok" if rc == 0 else "error",
+            "duration_ms": duration_ms,
+            "policy": "side_effecting",
+            "result": {
+                "exit_code": rc,
+                "transcript": str(transcript),
+                "transcript_sha256": transcript_sha,
+                "raw_transcript_is_sensitive": True,
+            },
+        },
+    )
+
+    api_post(
+        f"/runs/{run_id}/checkpoint",
+        {
+            "label": "after-codex",
+            "state": {
+                "exit_code": rc,
+                "transcript": str(transcript),
+                "transcript_sha256": transcript_sha,
+            },
+        },
+    )
+
+    if rc != 0:
+        api_event(
+            run_id,
+            "error",
+            "codex_exit_nonzero",
+            {
+                "exit_code": rc,
+                "transcript": str(transcript),
+            },
+        )
+
+    api_post(
+        f"/runs/{run_id}/end",
+        {"status": "completed" if rc == 0 else "failed"},
+    )
+
+
+def _end_run(run_id: str, status: str, error_payload: dict | None = None) -> None:
+    """Best-effort error event + run finalization.  Swallows API errors so cleanup can proceed."""
+    try:
+        if error_payload:
+            api_event(run_id, "error", "codex_launcher_error", error_payload)
+    except Exception as exc:
+        print(f"codexafr: failed to emit error event for {run_id}: {exc}", file=sys.stderr)
+    try:
+        api_post(f"/runs/{run_id}/end", {"status": status})
+    except Exception as exc:
+        print(f"codexafr: failed to end run {run_id} as {status}: {exc}", file=sys.stderr)
+
+
+def _run_account_mode(argv: list[str], codex_bin: str) -> int:
+    """Run Codex in account-login mode with hook-based capture."""
+    afr_root = _afr_root()
+    bridge = _script_dir() / "codexafr-hook-bridge.py"
+    if not bridge.exists():
+        print(f"Missing hook bridge: {bridge}", file=sys.stderr)
+        return 127
+
+    run_name = "codex-" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    run = api_post(
+        "/runs",
+        {
+            "name": run_name,
+            "metadata": {
+                "agent": "codex",
+                "wrapper": "codexafr",
+                "cwd": os.getcwd(),
+                "binary": codex_bin,
+                "argv": argv,
+                "mode": "account",
+            },
+        },
+    )
+    run_id = run["id"]
+
+    transcript = afr_root / ".afr" / "codex" / run_id / "terminal-transcript.txt"
+
+    receiver: tuple[HTTPServer, int, queue.Queue[dict], threading.Event] | None = None
+    codex_home: Path | None = None
+    rc = 1
+    try:
+        # Start local receiver before building CODEX_HOME so the bridge has a URL.
+        receiver = _start_hook_receiver(run_id)
+        server, port, event_queue, stop_event = receiver
+        event_url = f"http://127.0.0.1:{port}"
+
+        # Build an isolated Codex home directory with hooks pointed at our bridge.
+        codex_home = Path(tempfile.mkdtemp(prefix="codex-home-"))
+        _copy_account_auth(codex_home)
+        _write_codex_config(codex_home, bridge, event_url)
+
+        cmd = [codex_bin, *argv]
+        env = os.environ.copy()
+        env["CODEX_HOME"] = str(codex_home)
+        env["CODEX_AFR_EVENT_URL"] = event_url
+        env["CODEX_AFR_RUN_ID"] = run_id
+
+        start = time.perf_counter()
+        rc = _run_codex_with_transcript(cmd, transcript, env)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        # Stop may already have been signalled by the hook receiver.
+        if not stop_event.is_set():
+            stop_event.set()
+            # Allow a moment for any in-flight hook events to arrive.
+            time.sleep(0.5)
+
+        _finalize_run(run_id, rc, transcript, duration_ms, event_queue)
+    except KeyboardInterrupt:
+        _end_run(run_id, "stopped", {"error": "KeyboardInterrupt", "stage": "account_mode"})
+        rc = 130
+    except Exception as exc:
+        _end_run(
+            run_id,
+            "failed",
+            {"error": str(exc), "error_type": type(exc).__name__, "stage": "account_mode"},
+        )
+        print(f"codexafr: account mode error: {exc}", file=sys.stderr)
+        rc = 1
+    finally:
+        if receiver is not None:
+            receiver[0].shutdown()
+        if codex_home is not None:
+            shutil.rmtree(codex_home, ignore_errors=True)
+
+    print()
+    print(f"AFR run: {run_id}")
+    print(f"Transcript: {transcript}")
+    return rc
+
+
+def _start_api_proxy(run_id: str) -> tuple[subprocess.Popen[str], str]:
+    """Start the local OpenAI-compatible API proxy and return its URL."""
+    proxy = _script_dir() / "codexafr-api-proxy"
+    if not proxy.exists():
+        raise RuntimeError(
+            f"codexafr-api-proxy not found at {proxy}; "
+            "build or install it before using --api-key mode"
+        )
+
+    cmd = [
+        str(proxy),
+        "--run-id",
+        run_id,
+        "--afr-api-url",
+        API,
+    ]
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=subprocess.PIPE,
+        text=True,
+        env=os.environ.copy(),
+    )
+
+    # The proxy must print its local URL on the first line of stdout.
+    try:
+        first_line = proc.stdout.readline() if proc.stdout else ""
+    except Exception as exc:
+        proc.terminate()
+        raise RuntimeError(f"Failed to read proxy URL: {exc}") from exc
+
+    proxy_url = first_line.strip()
+    if not proxy_url:
+        proc.terminate()
+        raise RuntimeError("codexafr-api-proxy did not print a URL on stdout")
+
+    return proc, proxy_url
+
+
+def _terminate_proxy(proc: subprocess.Popen[str]) -> None:
+    """Send SIGTERM to the proxy and wait briefly for it to exit."""
+    if proc.poll() is not None:
+        return
+    try:
+        proc.terminate()
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=2)
+
+
+def _run_api_key_mode(argv: list[str], codex_bin: str) -> int:
+    """Run Codex in --api-key mode through the local API proxy."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        print(
+            "--api-key mode requires OPENAI_API_KEY to be set in the environment.",
+            file=sys.stderr,
+        )
+        return 1
+
+    afr_root = _afr_root()
+    run_name = "codex-" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    run = api_post(
+        "/runs",
+        {
+            "name": run_name,
+            "metadata": {
+                "agent": "codex",
+                "wrapper": "codexafr",
+                "cwd": os.getcwd(),
+                "binary": codex_bin,
+                "argv": argv,
+                "mode": "api-key",
+            },
+        },
+    )
+    run_id = run["id"]
+
+    transcript = afr_root / ".afr" / "codex" / run_id / "terminal-transcript.txt"
+
+    proxy_proc: subprocess.Popen[str] | None = None
+    rc = 1
+    try:
+        proxy_proc, proxy_url = _start_api_proxy(run_id)
+        cmd = [codex_bin, *argv]
+        env = os.environ.copy()
+        env["OPENAI_BASE_URL"] = proxy_url
+        env["CODEX_AFR_RUN_ID"] = run_id
+
+        start = time.perf_counter()
+        rc = _run_codex_with_transcript(cmd, transcript, env)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        _terminate_proxy(proxy_proc)
+
+        # The proxy writes events directly to AFR; we just finalize.
+        _finalize_run(run_id, rc, transcript, duration_ms, event_queue=None)
+    except KeyboardInterrupt:
+        _end_run(run_id, "stopped", {"error": "KeyboardInterrupt", "stage": "api_key_mode"})
+        rc = 130
+    except Exception as exc:
+        _end_run(
+            run_id,
+            "failed",
+            {"error": str(exc), "error_type": type(exc).__name__, "stage": "api_key_mode"},
+        )
+        print(f"codexafr: api-key mode error: {exc}", file=sys.stderr)
+        rc = 1
+    finally:
+        if proxy_proc is not None:
+            _terminate_proxy(proxy_proc)
+
+    print()
+    print(f"AFR run: {run_id}")
+    print(f"Transcript: {transcript}")
+    return rc
+
+
+def _parse_args(argv: list[str]) -> tuple[bool, list[str]]:
+    """Parse launcher args: consume leading --api-key, pass the rest to Codex."""
+    api_key = False
+    while argv and argv[0] == "--api-key":
+        api_key = True
+        argv = argv[1:]
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    return api_key, argv
+
+
+def main() -> int:
+    api_key, codex_argv = _parse_args(sys.argv[1:])
+
+    codex_bin = _find_codex_bin()
+    if not codex_bin or not os.path.isfile(codex_bin):
+        print(
+            "Could not find the codex binary. Set CODEX_BIN=/path/to/codex",
+            file=sys.stderr,
+        )
+        return 127
+
+    try:
+        if api_key:
+            return _run_api_key_mode(codex_argv, codex_bin)
+        return _run_account_mode(codex_argv, codex_bin)
+    except Exception as exc:
+        print(f"codexafr: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

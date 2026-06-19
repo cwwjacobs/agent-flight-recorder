@@ -44,6 +44,20 @@ def resume(ctx: afr.ReplayContext):
 afr.replay(run_id, checkpoint_id, mode="mock_tools")
 ```
 
+For any non-dry-run replay, the SDK treats the backend ticket as an
+authorization boundary. It resolves and invokes a handler only when
+`ticket.status` is exactly `"ready"`. Disabled, limit-exhausted, unknown,
+missing, and malformed statuses are rejected before handler resolution and
+produce a durable `replay_rejected` event when a backend context is available.
+
+Replay execution is finite by default: 10,000 planned tool events, 100 SDK
+tool steps, and 30 seconds of SDK wall-clock wait. Invalid or non-positive
+bound settings fail closed. Handler execution records `replay_started`,
+sanitized `replay_action`, and `replay_completed`, `replay_failed`, or
+`replay_limit_exhausted` events with actor and correlation metadata where
+available. Result values are represented by type and SHA-256 digest rather
+than copied into lifecycle events.
+
 - `ctx.state` — deterministic fold of `state_snapshot` events up to the
   checkpoint (see [data-model.md](data-model.md)).
 - `mode="dry_run"` — ticket only; the SDK does **not** invoke any handler.
