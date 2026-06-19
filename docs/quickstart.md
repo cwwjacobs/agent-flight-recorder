@@ -3,11 +3,13 @@
 The fastest path is Docker + the seeded demo:
 
 ```bash
-docker compose up --build      # http://localhost:8700
+docker compose up --build      # backend + UI on http://127.0.0.1:8700
 make demo-docker               # seed checkout-agent-payment-timeout
+open http://127.0.0.1:8700
 ```
 
-(or press **Create a demo incident** on the empty dashboard — same thing).
+The Docker image builds the web UI and serves it from the FastAPI backend. Data is stored in a local Docker volume.
+
 Everything below is the no-Docker path.
 
 ## 1. Install
@@ -36,15 +38,12 @@ The SQLite database defaults to `./afr.db` (override with `AFR_DB_PATH`).
 python3 scripts/seed_demo_run.py                            # or: make demo-docker
 ```
 
-The toy agent records model calls, tool calls (one fails on purpose and is
-retried), state snapshots, and three checkpoints. The langchain-like agent
-records through the adapter ([integrations.md](integrations.md)). The seed
-script creates the polished `checkout-agent-payment-timeout` incident.
+The toy agent records model calls, tool calls (one fails on purpose and is retried), state snapshots, and three checkpoints. The langchain-like agent records through the adapter ([integrations.md](integrations.md)). The seed script creates the polished `checkout-agent-payment-timeout` incident.
 
 Something not working?
 
 ```bash
-.venv/bin/afr doctor    # backend reachable? license? auth? can it write?
+.venv/bin/afr doctor    # backend reachable? auth? can it write?
 ```
 
 ## 4. Inspect
@@ -60,7 +59,7 @@ CLI:
 Web UI (dev mode, hot reload):
 
 ```bash
-cd ui && npm install && npm run dev    # http://127.0.0.1:5173 (proxies /api → :8700)
+cd ui && npm install && npm run dev    # http://127.0.0.1:5173 (proxies /api to :8700)
 ```
 
 Web UI (production, served by the backend):
@@ -71,13 +70,27 @@ cd ui && npm install && npm run build  # backend now serves it at http://127.0.0
 
 ## 5. Replay from a checkpoint
 
+Replay is deliberately disabled by default. Enable it only when you are ready to request replay tickets or invoke resume handlers.
+
+Docker:
+
 ```bash
-.venv/bin/afr replay <run_id> --from <checkpoint_id>                 # dry run: prints state
-.venv/bin/afr replay <run_id> --from <checkpoint_id> \
+AFR_REPLAY_ENABLED=true docker compose up --build
+AFR_REPLAY_ENABLED=true .venv/bin/afr replay <run_id> --from <checkpoint_id>
+AFR_REPLAY_ENABLED=true .venv/bin/afr replay <run_id> --from <checkpoint_id> \
     --mode mock_tools --handler examples.toy_agent.replay_handler:resume
 ```
 
-(Use `PYTHONPATH=.` from the repo root so the example handler module resolves.)
+No Docker:
+
+```bash
+AFR_REPLAY_ENABLED=true make serve
+AFR_REPLAY_ENABLED=true .venv/bin/afr replay <run_id> --from <checkpoint_id>
+AFR_REPLAY_ENABLED=true .venv/bin/afr replay <run_id> --from <checkpoint_id> \
+    --mode mock_tools --handler examples.toy_agent.replay_handler:resume
+```
+
+Use `PYTHONPATH=.` from the repo root so the example handler module resolves.
 
 ## 6. Point your own agent at it
 
@@ -90,7 +103,4 @@ with afr.start_run("my-agent"):
     afr.checkpoint("step-1")
 ```
 
-Set `AFR_API_URL` if the backend is not on `http://127.0.0.1:8700`, or run
-`afr init` to write a per-project `.afr/config.json`. If the server was
-started with `AFR_API_TOKEN`, export the same variable where your agent and
-CLI run — the SDK sends it automatically.
+Set `AFR_API_URL` if the backend is not on `http://127.0.0.1:8700`, or run `afr init` to write a per-project `.afr/config.json`. If the server was started with `AFR_API_TOKEN`, export the same variable where your agent and CLI run. The SDK sends it automatically.
