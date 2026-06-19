@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+AFR_ROOT="${AFR_ROOT:-$REPO_ROOT}"
+AFR_URL="${AFR_API_URL:-http://127.0.0.1:8700}"
+CODEX_BIN="${CODEX_BIN:-/home/terminus-protocol/.codex/bin/codex}"
+WRAPPER="$SCRIPT_DIR/codexafr"
+ADD_OUTPUT="$SCRIPT_DIR/afr-add-codex-output"
+PACKAGE="$SCRIPT_DIR/afr-package-latest-codex"
+LOG_DIR="$AFR_ROOT/.afr/logs"
+SERVER_LOG="$LOG_DIR/afr-server.log"
+AFR_BIN="${AFR_BIN:-$REPO_ROOT/.venv/bin/afr}"
+
+mkdir -p "$LOG_DIR"
+
+if [[ ! -x "$CODEX_BIN" ]]; then
+  echo "Missing Codex binary:" >&2
+  echo "  $CODEX_BIN" >&2
+  exit 127
+fi
+
+if [[ ! -x "$WRAPPER" ]]; then
+  echo "Missing AFR Codex wrapper:" >&2
+  echo "  $WRAPPER" >&2
+  exit 127
+fi
+
+if ! curl -sf "$AFR_URL/health" >/dev/null; then
+  echo "AFR is not running. Starting AFR..."
+  cd "$AFR_ROOT"
+  nohup make serve > "$SERVER_LOG" 2>&1 &
+
+  for _ in $(seq 1 30); do
+    if curl -sf "$AFR_URL/health" >/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+fi
+
+if ! curl -sf "$AFR_URL/health" >/dev/null; then
+  echo "AFR failed to start." >&2
+  echo "Server log:" >&2
+  tail -80 "$SERVER_LOG" >&2 || true
+  exit 1
+fi
+
+cd "$AFR_ROOT"
+
+echo "AFR health:"
+curl -s "$AFR_URL/health"
+echo
+
+echo "Launching Codex under AFR capture..."
+echo "Codex:   $CODEX_BIN"
+echo "Wrapper: $WRAPPER"
+echo
+
+set +e
+tmp_out="$(mktemp "$LOG_DIR/codex-wrapper-output.XXXXXX")"
+AFR_ROOT="$AFR_ROOT" \
+AFR_BIN="$AFR_BIN" \
+CODEX_BIN="$CODEX_BIN" \
+AFR_API_URL="$AFR_URL" \
+"$WRAPPER" "$@" 2>&1 | tee "$tmp_out"
+rc=${PIPESTATUS[0]}
+set -e
+
+run_id=""
+if [[ -f "$tmp_out" ]]; then
+  run_id="$(grep -m1 '^AFR run: ' "$tmp_out" | awk '{print $3}' || true)"
+  rm -f "$tmp_out"
+fi
+
+echo
+echo "Codex exited with: $rc"
+echo
+
+if [[ $rc -eq 0 ]]; then
+  echo "Capturing Codex output tail into AFR..."
+  if [[ -n "$run_id" ]]; then
+    AFR_ROOT="$AFR_ROOT" AFR_API_URL="$AFR_URL" AFR_BIN="$AFR_BIN" "$ADD_OUTPUT" "$run_id" || rc=$?
+  else
+    AFR_ROOT="$AFR_ROOT" AFR_API_URL="$AFR_URL" AFR_BIN="$AFR_BIN" "$ADD_OUTPUT" || rc=$?
+  fi
+
+  echo
+  echo "Building clean share package..."
+  if [[ -n "$run_id" ]]; then
+    AFR_ROOT="$AFR_ROOT" AFR_API_URL="$AFR_URL" AFR_BIN="$AFR_BIN" "$PACKAGE" "$run_id" || rc=$?
+  else
+    AFR_ROOT="$AFR_ROOT" AFR_API_URL="$AFR_URL" AFR_BIN="$AFR_BIN" "$PACKAGE" || rc=$?
+  fi
+else
+  echo "Codex failed; skipping output-tail capture and clean packaging."
+fi
+
+echo
+echo "Recent AFR runs:"
+"$AFR_BIN" -A "$AFR_URL" runs list --limit 5 || true
+
+echo
+exit "$rc"
