@@ -18,6 +18,7 @@ from app.engine import checkpoints as ckpt_engine
 from app.engine import events as event_engine
 from app.engine import runs as run_engine
 from app.replay import prepare_replay
+from app.replay.service import ReplayDisabled
 
 DEMO_RUN_NAME = "checkout-agent-payment-timeout"
 
@@ -151,15 +152,26 @@ def seed_demo_run() -> dict[str, Any]:
 
     failure_ckpt = ckpt_engine.create_checkpoint(run_id, label=CHECKPOINT_FAILURE)
 
-    # the replay the demo story is about: resume from before the charge with
-    # every tool mocked — free mode, works on free and premium instances
-    ticket = prepare_replay(run_id, safe_ckpt["id"], mode="mock_tools")
+    # The replay the demo story is about: resume from before the charge with
+    # every tool mocked. mock_tools never executes anything and needs no opt-in
+    # features. If replay is disabled on this server (AFR_REPLAY_ENABLED unset),
+    # seeding still succeeds — we return an empty replay section rather than 500.
+    try:
+        replay = prepare_replay(run_id, safe_ckpt["id"], mode="mock_tools").to_dict()
+    except ReplayDisabled as exc:
+        replay = {
+            "status": "disabled",
+            "mode": "mock_tools",
+            "message": str(exc),
+            "tool_plan": {},
+            "mock_results": {},
+        }
 
     run = run_engine.end_run(run_id, status="failed")
 
     return {
         "run": run,
         "checkpoints": {"safe": safe_ckpt, "failure": failure_ckpt},
-        "replay": ticket.to_dict(),
+        "replay": replay,
         "ui_url": f"/#/runs/{run_id}",
     }

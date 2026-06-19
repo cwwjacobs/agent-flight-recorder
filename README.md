@@ -53,23 +53,23 @@ AFR is not a guarantee that every state change was captured. State reconstructio
 
 ## Quickstart
 
-Docker starts the backend on `http://127.0.0.1:8700` and stores data in a local Docker volume:
+Docker builds the web UI, serves it alongside the API on `http://127.0.0.1:8700`, and stores data in a local Docker volume:
 
 ```bash
-docker compose up --build
+docker compose up --build     # backend + UI on http://127.0.0.1:8700
 make demo-docker              # seed the checkout-agent-payment-timeout demo incident
+open http://127.0.0.1:8700
 ```
 
-Without Docker:
+Without Docker (the backend, SDK, and CLI work on their own; the UI is optional):
 
 ```bash
 make install
-make serve
+make serve                    # API on http://127.0.0.1:8700
+make build-ui                 # optional: build the UI — the backend serves ui/dist
 make demo
 afr doctor
 ```
-
-The repository also contains a React/Vite UI source tree, but the current Docker path is backend-first. Treat UI build work as optional development surface unless separately reviewed.
 
 ## Record your agent
 

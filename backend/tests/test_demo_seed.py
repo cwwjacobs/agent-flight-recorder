@@ -56,12 +56,26 @@ def test_seed_reconstructs_pre_charge_state(api):
     assert "charge" not in state
 
 
-def test_seed_works_on_free_plan_and_can_be_disabled(api, monkeypatch):
-    # free plan (no AFR_PREMIUM_ENABLED): seeding and its mock_tools replay work
+def test_seed_works_by_default_and_can_be_disabled(api, monkeypatch):
+    # no opt-in features needed: seeding and its mock_tools replay work
     assert api.post("/demo/seed").status_code == 201
 
     monkeypatch.setenv("AFR_DEMO_SEED_ENABLED", "false")
     assert api.post("/demo/seed").status_code == 403
+
+
+def test_seed_succeeds_even_when_replay_disabled(api, monkeypatch):
+    # Regression: demo seeding prepares a mock_tools replay plan. With replay
+    # disabled (the default outside the demo compose), that must not 500 — the
+    # run is still created and the replay section reports "disabled".
+    monkeypatch.delenv("AFR_REPLAY_ENABLED", raising=False)
+    response = api.post("/demo/seed")
+    assert response.status_code == 201
+    doc = response.json()
+    assert doc["run"]["status"] == "failed"
+    assert doc["run"]["checkpoints_count"] == 2
+    assert doc["replay"]["status"] == "disabled"
+    assert doc["replay"]["tool_plan"] == {}
 
 
 def test_seed_twice_creates_two_runs(api):
