@@ -898,10 +898,10 @@ textarea.control:focus {
 }
 
 /* ==========================================================================
-   PREMIUM
+   FEATURE CHIP
    ========================================================================== */
 
-/* plan chip in the chrome */
+/* feature chip in the chrome */
 .plan-chip {
   font-family: var(--font-mono);
   font-size: 9.5px;
@@ -913,7 +913,7 @@ textarea.control:focus {
   color: var(--text-dim);
 }
 
-.plan-chip.premium {
+.plan-chip.experimental {
   color: var(--gold);
   border-color: var(--gold-line);
   background: color-mix(in srgb, var(--gold) 8%, transparent);

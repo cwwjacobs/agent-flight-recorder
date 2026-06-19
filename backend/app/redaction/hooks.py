@@ -1,4 +1,4 @@
-"""Custom redactor hooks (premium) + the single apply_redaction entry point.
+"""Custom redactor hooks (opt-in) + the single apply_redaction entry point.
 
 A redactor is `Callable[[dict], dict]` — it receives a payload (already passed
 through default redaction) and returns a scrubbed copy. Embedders register
@@ -10,16 +10,16 @@ them at startup:
     def drop_pii(payload: dict) -> dict:
         ...
 
-Custom redactors only run when premium is enabled; the defaults always run
-(unless AFR_REDACTION_ENABLED=false) because shipping secrets to disk is not
-a feature tier.
+Custom redactors are an advanced/experimental feature: they only run when
+AFR_EXPERIMENTAL_FEATURES_ENABLED is set. The defaults always run (unless
+AFR_REDACTION_ENABLED=false) because shipping secrets to disk is never gated.
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable
 
-from app.license import is_premium
+from app.license import experimental_enabled
 from app.redaction.default import default_redact, redaction_enabled
 
 Redactor = Callable[[dict], dict]
@@ -40,7 +40,7 @@ def apply_redaction(payload: Any) -> Any:
     if not redaction_enabled():
         return payload
     scrubbed = default_redact(payload)
-    if _redactors and is_premium() and isinstance(scrubbed, dict):
+    if _redactors and experimental_enabled() and isinstance(scrubbed, dict):
         for redactor in _redactors:
             scrubbed = redactor(scrubbed)
     return scrubbed

@@ -8,8 +8,8 @@ from app.mcp import TOOLS
 
 
 @pytest.fixture()
-def premium(monkeypatch):
-    monkeypatch.setenv("AFR_PREMIUM_ENABLED", "true")
+def experimental(monkeypatch):
+    monkeypatch.setenv("AFR_EXPERIMENTAL_FEATURES_ENABLED", "true")
 
 
 EXPECTED_TOOLS = {
@@ -31,11 +31,11 @@ def test_registry_has_all_tools():
 
 
 def test_mcp_endpoints_gated(api):
-    assert api.get("/mcp/tools").status_code == 402
-    assert api.post("/mcp/call", json={"tool": "afr_list_runs"}).status_code == 402
+    assert api.get("/mcp/tools").status_code == 403
+    assert api.post("/mcp/call", json={"tool": "afr_list_runs"}).status_code == 403
 
 
-def test_mcp_list_and_call_roundtrip(premium, api):
+def test_mcp_list_and_call_roundtrip(experimental, api):
     tools = api.get("/mcp/tools").json()
     assert tools["stub"] is True
     assert {t["name"] for t in tools["tools"]} == EXPECTED_TOOLS
@@ -70,7 +70,7 @@ def test_mcp_list_and_call_roundtrip(premium, api):
     assert forked["result"]["parent_run_id"] == run_id
 
 
-def test_mcp_errors(premium, api):
+def test_mcp_errors(experimental, api):
     assert api.post("/mcp/call", json={"tool": "nope"}).status_code == 404
     r = api.post(
         "/mcp/call", json={"tool": "afr_get_run", "arguments": {"bogus_arg": 1}}

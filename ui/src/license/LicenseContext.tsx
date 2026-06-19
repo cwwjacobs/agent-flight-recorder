@@ -4,10 +4,9 @@ import { api } from "../api/client";
 import type { License } from "../api/types";
 
 const FALLBACK: License = {
-  premium: false,
-  plan: "free",
+  experimental_enabled: false,
   features: {},
-  hint: "Set AFR_PREMIUM_ENABLED=true to enable premium features.",
+  hint: "Set AFR_EXPERIMENTAL_FEATURES_ENABLED=true to enable advanced/experimental features.",
 };
 
 const LicenseContext = createContext<License>(FALLBACK);
@@ -29,6 +28,6 @@ export function useLicense(): License {
   return useContext(LicenseContext);
 }
 
-export function usePremium(): boolean {
-  return useContext(LicenseContext).premium;
+export function useExperimental(): boolean {
+  return useContext(LicenseContext).experimental_enabled;
 }

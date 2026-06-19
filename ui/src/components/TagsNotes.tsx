@@ -2,10 +2,10 @@ import { useState } from "react";
 import type { KeyboardEvent } from "react";
 import { api } from "../api/client";
 import type { Run } from "../api/types";
-import { usePremium } from "../license/LicenseContext";
+import { useExperimental } from "../license/LicenseContext";
 
 export function TagsNotes({ run, onUpdated }: { run: Run; onUpdated: (r: Run) => void }) {
-  const premium = usePremium();
+  const experimental = useExperimental();
   const [draft, setDraft] = useState("");
   const [notes, setNotes] = useState(run.notes ?? "");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -44,7 +44,7 @@ export function TagsNotes({ run, onUpdated }: { run: Run; onUpdated: (r: Run) =>
     <section className="panel panel-ticks">
       <div className="panel-head">
         <span className="panel-title">Tags &amp; Notes</span>
-        {!premium && <span className="lock-chip">🔒 premium</span>}
+        {!experimental && <span className="lock-chip">🔒 experimental</span>}
       </div>
       <div className="panel-body">
         <div className="field-row">
@@ -53,7 +53,7 @@ export function TagsNotes({ run, onUpdated }: { run: Run; onUpdated: (r: Run) =>
             {(run.tags ?? []).map((tag) => (
               <span key={tag} className="tag">
                 {tag}
-                {premium && (
+                {experimental && (
                   <button
                     className="tag-x"
                     title={`remove ${tag}`}
@@ -64,7 +64,7 @@ export function TagsNotes({ run, onUpdated }: { run: Run; onUpdated: (r: Run) =>
                 )}
               </span>
             ))}
-            {premium ? (
+            {experimental ? (
               <input
                 className="control tag-input"
                 placeholder="add tag ⏎"
@@ -80,7 +80,7 @@ export function TagsNotes({ run, onUpdated }: { run: Run; onUpdated: (r: Run) =>
 
         <div className="field-row">
           <label className="microlabel">notes</label>
-          {premium ? (
+          {experimental ? (
             <>
               <textarea
                 className="control"
@@ -103,9 +103,9 @@ export function TagsNotes({ run, onUpdated }: { run: Run; onUpdated: (r: Run) =>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
-        {!premium && (
+        {!experimental && (
           <p className="state-empty">
-            Set <code>AFR_PREMIUM_ENABLED=true</code> to tag and annotate runs.
+            Set <code>AFR_EXPERIMENTAL_FEATURES_ENABLED=true</code> to tag and annotate runs.
           </p>
         )}
       </div>

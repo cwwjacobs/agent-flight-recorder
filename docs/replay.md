@@ -73,12 +73,12 @@ than copied into lifecycle events.
 
 ## Modes
 
-| Mode | Behaviour | Tier |
+| Mode | Behaviour | Availability |
 | --- | --- | --- |
-| `dry_run` (default) | plan + state only; the SDK invokes **no** handler | free |
-| `mock_tools` | handler runs; every tool is mocked from recorded results | free |
-| `allow_safe_tools` | tools recorded `policy="safe"` execute; everything else mocked | premium |
-| `allow_side_effects` | side effects execute; `requires_approval` tools blocked unless `approved: true` | premium |
+| `dry_run` (default) | plan + state only; the SDK invokes **no** handler | always on |
+| `mock_tools` | handler runs; every tool is mocked from recorded results | always on |
+| `allow_safe_tools` | tools recorded `policy="safe"` execute; everything else mocked | experimental (opt-in) |
+| `allow_side_effects` | side effects execute; `requires_approval` tools blocked unless `approved: true` | experimental (opt-in) |
 
 ## Who enforces what — read this part
 

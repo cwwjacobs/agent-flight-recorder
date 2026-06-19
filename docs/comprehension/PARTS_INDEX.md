@@ -131,4 +131,4 @@ If they fail: the repo may exist but not converge in Core's head.
 
 ## Unknown / pending parts
 
-The repo may include additional modules or premium analysis components not fully mapped here yet. Add each one only after a five-line explanation is written.
+The repo may include additional modules or analysis components not fully mapped here yet. Add each one only after a five-line explanation is written.

@@ -19,12 +19,13 @@ The server never executes user code. The ticket is the entire interface, so
 anything that can read JSON can implement a resume handler (Python SDK, CLI
 `--handler module:fn`, or your own runtime).
 
-MVP modes:
+Base modes:
     dry_run  — return the ticket only; SDK does not invoke any handler
     (other)  — passed through to the handler untouched
 
-Premium replaces the free-form mode with a validated safety-policy engine
-(dry_run / mock_tools / allow_safe_tools / allow_side_effects).
+The advanced (opt-in) path replaces the free-form mode with a validated
+safety-policy engine (dry_run / mock_tools / allow_safe_tools /
+allow_side_effects).
 """
 
 from __future__ import annotations

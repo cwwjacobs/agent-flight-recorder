@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { AfrEvent } from "../api/types";
-import { usePremium } from "../license/LicenseContext";
+import { useExperimental } from "../license/LicenseContext";
 import { collectStatePoints, diffJson, foldStateUpTo } from "../util/jsondiff";
 
 function Val({ v }: { v: unknown }) {
@@ -9,7 +9,7 @@ function Val({ v }: { v: unknown }) {
 }
 
 export function DiffPanel({ events }: { events: AfrEvent[] }) {
-  const premium = usePremium();
+  const experimental = useExperimental();
   const points = useMemo(() => collectStatePoints(events), [events]);
   const [seqA, setSeqA] = useState<number | "">("");
   const [seqB, setSeqB] = useState<number | "">("");
@@ -19,17 +19,17 @@ export function DiffPanel({ events }: { events: AfrEvent[] }) {
     return diffJson(foldStateUpTo(events, seqA), foldStateUpTo(events, seqB));
   }, [events, seqA, seqB]);
 
-  if (!premium) {
+  if (!experimental) {
     return (
       <section className="panel panel-ticks">
         <div className="panel-head">
           <span className="panel-title">Compare State</span>
-          <span className="lock-chip">🔒 premium</span>
+          <span className="lock-chip">🔒 experimental</span>
         </div>
         <div className="panel-body">
           <p className="state-empty">
             Compare agent state between any two checkpoints or snapshots.
-            Set <code>AFR_PREMIUM_ENABLED=true</code> to unlock.
+            Set <code>AFR_EXPERIMENTAL_FEATURES_ENABLED=true</code> to unlock.
           </p>
         </div>
       </section>

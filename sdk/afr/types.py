@@ -39,8 +39,8 @@ EVENT_TYPES = (
     EVENT_REPLAY_COMPLETED,
 )
 
-# Replay modes. MVP treats these as advisory strings passed to your handler;
-# the Premium backend enforces them as safety policies.
+# Replay modes. The base path treats these as advisory strings passed to your
+# handler; the advanced (opt-in) backend enforces them as safety policies.
 MODE_DRY_RUN = "dry_run"
 MODE_MOCK_TOOLS = "mock_tools"
 MODE_ALLOW_SAFE_TOOLS = "allow_safe_tools"
@@ -49,7 +49,7 @@ MODE_ALLOW_SIDE_EFFECTS = "allow_side_effects"
 REPLAY_MODES = (MODE_DRY_RUN, MODE_MOCK_TOOLS, MODE_ALLOW_SAFE_TOOLS, MODE_ALLOW_SIDE_EFFECTS)
 
 # Tool replay policies (recorded on tool_call payloads, enforced by the
-# premium policy engine during replay)
+# advanced replay policy engine during replay)
 POLICY_SAFE = "safe"
 POLICY_SIDE_EFFECTING = "side_effecting"
 POLICY_MOCK_BY_DEFAULT = "mock_by_default"

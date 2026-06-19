@@ -1,4 +1,4 @@
-"""HTTP face of the MCP stub (premium-gated)."""
+"""HTTP face of the MCP-shaped prototype (opt-in feature)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.errors import not_found_to_404
-from app.license import premium_feature
+from app.license import experimental_feature
 from app.mcp.tools import call_tool, get_tool_definitions
 
-router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[premium_feature("mcp")])
+router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[experimental_feature("mcp")])
 
 
 class MCPCallIn(BaseModel):

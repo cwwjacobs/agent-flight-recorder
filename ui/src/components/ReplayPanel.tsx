@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import type { Checkpoint, ReplayResult } from "../api/types";
-import { usePremium } from "../license/LicenseContext";
+import { useExperimental } from "../license/LicenseContext";
 import { shortId } from "../util/format";
 
 const MODES = [
@@ -9,25 +9,25 @@ const MODES = [
     id: "dry_run",
     label: "dry_run — plan only",
     help: "Builds the replay plan and reconstructs state. Nothing runs — not even your resume handler.",
-    premium: false,
+    experimental: false,
   },
   {
     id: "mock_tools",
     label: "mock_tools — everything mocked",
     help: "Your resume handler runs, but every tool returns its recorded result instead of executing. The safest way to actually step through a failure.",
-    premium: false,
+    experimental: false,
   },
   {
     id: "allow_safe_tools",
     label: "allow_safe_tools — read-only tools execute",
     help: "Tools recorded as policy \"safe\" (read-only) really execute; everything else is mocked.",
-    premium: true,
+    experimental: true,
   },
   {
     id: "allow_side_effects",
     label: "allow_side_effects — side effects execute",
     help: "Side-effecting tools really execute. Tools marked requires_approval stay blocked unless you approve them below.",
-    premium: true,
+    experimental: true,
   },
 ];
 
@@ -49,7 +49,7 @@ export function ReplayPanel({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const premium = usePremium();
+  const experimental = useExperimental();
   const [mode, setMode] = useState("dry_run");
   const [approved, setApproved] = useState(false);
   const [result, setResult] = useState<ReplayResult | null>(null);
@@ -109,8 +109,8 @@ export function ReplayPanel({
             onChange={(e) => setMode(e.target.value)}
           >
             {MODES.map((m) => (
-              <option key={m.id} value={m.id} disabled={m.premium && !premium}>
-                {m.premium && !premium ? `🔒 ${m.label}` : m.label}
+              <option key={m.id} value={m.id} disabled={m.experimental && !experimental}>
+                {m.experimental && !experimental ? `🔒 ${m.label}` : m.label}
               </option>
             ))}
           </select>

@@ -26,7 +26,7 @@ export interface Run {
   // run-list enrichment (GET /runs only)
   last_error?: string | null;
   event_type_counts?: Record<string, number>;
-  // premium
+  // tags/notes/fork lineage
   tags: string[];
   notes: string;
   parent_run_id: string | null;
@@ -35,8 +35,7 @@ export interface Run {
 }
 
 export interface License {
-  premium: boolean;
-  plan: "free" | "premium";
+  experimental_enabled: boolean;
   features: Record<string, boolean>;
   hint: string | null;
 }
@@ -89,7 +88,7 @@ export interface ReplayResult {
   status: string;
   message: string;
   replay_event_id: string;
-  // premium policy engine
+  // advanced replay policy engine
   tool_plan: Record<string, ToolPlanEntry>;
   mock_results: Record<string, unknown>;
   policy_notes: string | null;

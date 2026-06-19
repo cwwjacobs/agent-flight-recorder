@@ -1,4 +1,4 @@
-"""Forked replay (premium): branch a new run off any checkpoint.
+"""Forked replay (opt-in feature): branch a new run off any checkpoint.
 
 The fork is a fresh run whose timeline starts with the parent's state as of
 the checkpoint (seeded as a `state_snapshot`), plus lineage links in both

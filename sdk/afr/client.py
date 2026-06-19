@@ -144,10 +144,10 @@ class AFRClient:
         body = {"checkpoint_id": checkpoint_id, "mode": mode, **extra}
         return self._request("POST", f"/runs/{run_id}/replay", json=body)
 
-    # -- premium ----------------------------------------------------------------
+    # -- opt-in (experimental) features ------------------------------------------
 
     def fork(self, run_id: str, checkpoint_id: str, name: str | None = None) -> dict:
-        """Fork a new run from a checkpoint (premium)."""
+        """Fork a new run from a checkpoint (experimental opt-in feature)."""
         return self._request(
             "POST", f"/runs/{run_id}/fork", json={"checkpoint_id": checkpoint_id, "name": name}
         )
@@ -160,7 +160,7 @@ class AFRClient:
         tags: list[str] | None = None,
         notes: str | None = None,
     ) -> dict:
-        """Update run name/tags/notes (premium)."""
+        """Update run name/tags/notes (tags/notes are an experimental opt-in feature)."""
         body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name

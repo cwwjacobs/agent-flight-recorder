@@ -34,4 +34,5 @@ adoption path, so it ships after the adapters that give the full story.
 Shared instance, auth beyond a single bearer token, retention policies,
 multi-writer storage. The current single-process + SQLite design is a
 deliberate ceiling for the self-hosted devtool; team mode is where that
-changes (and where the premium boundary becomes a real product).
+changes. AFR stays MIT-licensed and free; this is a possible future
+direction, not a paid offering.

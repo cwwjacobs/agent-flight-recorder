@@ -20,7 +20,7 @@ def test_doctor_healthy_backend(sdk_client, api, capsys):
     out = capsys.readouterr().out
     assert ok
     assert "[ok]   backend reachable" in out
-    assert "[ok]   license:" in out
+    assert "[ok]   features:" in out
     assert "[ok]   read access" in out
     assert "[ok]   write access" in out
     assert "all checks passed" in out

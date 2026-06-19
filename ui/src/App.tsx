@@ -5,14 +5,14 @@ import { LicenseProvider, useLicense } from "./license/LicenseContext";
 import RunListPage from "./pages/RunListPage";
 import RunDetailPage from "./pages/RunDetailPage";
 
-function PlanChip() {
+function FeatureChip() {
   const license = useLicense();
   return (
     <span
-      className={`plan-chip ${license.premium ? "premium" : ""}`}
-      title={license.hint ?? "all premium features enabled"}
+      className={`plan-chip ${license.experimental_enabled ? "experimental" : ""}`}
+      title={license.hint ?? "advanced/experimental features enabled"}
     >
-      {license.premium ? "◆ premium" : "free"}
+      {license.experimental_enabled ? "◆ experimental" : "standard"}
     </span>
   );
 }
@@ -45,7 +45,7 @@ export default function App() {
                 </span>
               </Link>
               <span className="rec-dot" title="recording" />
-              <PlanChip />
+              <FeatureChip />
               <span className="topbar-spacer" />
               <ThemeToggle />
             </header>

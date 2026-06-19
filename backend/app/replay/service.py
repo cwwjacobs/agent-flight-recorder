@@ -1,10 +1,10 @@
 """Server-side replay preparation (see contract.py for the full contract).
 
-Premium extends the MVP ticket with a per-tool safety plan computed by
-policies.py — the safe-by-default matrix over recorded tool policies — plus
-record/replay mock results (the last successful recorded result for every
-tool the plan mocks). Free mode is restricted to the inherently safe modes
-(dry_run, mock_tools).
+The advanced (opt-in) path extends the base ticket with a per-tool safety plan
+computed by policies.py — the safe-by-default matrix over recorded tool
+policies — plus record/replay mock results (the last successful recorded result
+for every tool the plan mocks). The always-on path is restricted to the
+inherently safe modes (dry_run, mock_tools).
 """
 
 from __future__ import annotations
@@ -12,9 +12,9 @@ from __future__ import annotations
 from app import config
 from app.engine import checkpoints as ckpt_engine
 from app.engine import events as event_engine
-from app.license import ensure_premium
+from app.license import require_experimental
 from app.replay.contract import ReplayTicket
-from app.replay.policies import FREE_MODES, MODES, ReplayLimitExhausted, build_tool_plan
+from app.replay.policies import MODES, SAFE_MODES, ReplayLimitExhausted, build_tool_plan
 
 
 class ReplayDisabled(Exception):
@@ -33,8 +33,8 @@ def prepare_replay(
 ) -> ReplayTicket:
     if mode not in MODES:
         raise ValueError(f"unknown replay mode {mode!r}; expected one of {MODES}")
-    if mode not in FREE_MODES:
-        ensure_premium("replay_policies")
+    if mode not in SAFE_MODES:
+        require_experimental("replay_policies")
 
     state_doc = ckpt_engine.state_at_checkpoint(run_id, checkpoint_id)
     checkpoint = state_doc["checkpoint"]

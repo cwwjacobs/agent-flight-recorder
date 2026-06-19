@@ -69,7 +69,7 @@ class RunOut(BaseModel):
     # run-list enrichment (GET /runs only; empty on single-run reads)
     last_error: str | None = None
     event_type_counts: dict[str, int] = Field(default_factory=dict)
-    # premium fields (always present, empty in free mode)
+    # tags/notes/fork fields (always present; populated when used)
     tags: list[str] = Field(default_factory=list)
     notes: str = ""
     parent_run_id: str | None = None
@@ -150,8 +150,8 @@ ReplayMode = Literal["dry_run", "mock_tools", "allow_safe_tools", "allow_side_ef
 
 class ReplayIn(BaseModel):
     checkpoint_id: str
-    # dry_run and mock_tools are free; allow_safe_tools / allow_side_effects
-    # require premium. The default executes nothing.
+    # dry_run and mock_tools are always on; allow_safe_tools / allow_side_effects
+    # are opt-in advanced features. The default executes nothing.
     mode: ReplayMode = "dry_run"
     # required to unblock tools whose policy is requires_approval, and only
     # meaningful in allow_side_effects mode
@@ -167,7 +167,7 @@ class ReplayOut(BaseModel):
     status: str
     message: str
     replay_event_id: str
-    # premium policy engine output
+    # advanced replay policy engine output
     tool_plan: dict[str, dict[str, str]] = Field(default_factory=dict)
     mock_results: dict[str, Any] = Field(default_factory=dict)
     policy_notes: str | None = None

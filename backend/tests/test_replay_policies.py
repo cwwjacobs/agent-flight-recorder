@@ -71,7 +71,7 @@ def _record_run_with_tools(api) -> tuple[str, str]:
     return run_id, ckpt["id"]
 
 
-def test_free_modes_work_without_premium(api):
+def test_safe_modes_work_without_experimental(api):
     run_id, ckpt_id = _record_run_with_tools(api)
     ticket = api.post(
         f"/runs/{run_id}/replay", json={"checkpoint_id": ckpt_id, "mode": "mock_tools"}
@@ -83,17 +83,17 @@ def test_free_modes_work_without_premium(api):
     assert ticket["mock_results"]["send_email"] == "sent"
 
 
-def test_premium_modes_are_gated(api):
+def test_advanced_modes_are_gated(api):
     run_id, ckpt_id = _record_run_with_tools(api)
     r = api.post(
         f"/runs/{run_id}/replay", json={"checkpoint_id": ckpt_id, "mode": "allow_side_effects"}
     )
-    assert r.status_code == 402
-    assert r.json()["detail"]["error"] == "premium_required"
+    assert r.status_code == 403
+    assert r.json()["detail"]["error"] == "experimental_feature_disabled"
 
 
-def test_allow_side_effects_with_premium(monkeypatch, api):
-    monkeypatch.setenv("AFR_PREMIUM_ENABLED", "true")
+def test_allow_side_effects_with_experimental(monkeypatch, api):
+    monkeypatch.setenv("AFR_EXPERIMENTAL_FEATURES_ENABLED", "true")
     run_id, ckpt_id = _record_run_with_tools(api)
 
     # not approved: requires_approval tool is blocked
@@ -114,7 +114,7 @@ def test_allow_side_effects_with_premium(monkeypatch, api):
 
 
 def test_allow_safe_tools_mocks_everything_else(monkeypatch, api):
-    monkeypatch.setenv("AFR_PREMIUM_ENABLED", "true")
+    monkeypatch.setenv("AFR_EXPERIMENTAL_FEATURES_ENABLED", "true")
     run_id, ckpt_id = _record_run_with_tools(api)
     ticket = api.post(
         f"/runs/{run_id}/replay", json={"checkpoint_id": ckpt_id, "mode": "allow_safe_tools"}
