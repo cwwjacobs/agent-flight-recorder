@@ -1,4 +1,4 @@
-"""Client-side redaction (premium feature, mirrors backend behaviour).
+"""Client-side redaction (mirrors backend behaviour).
 
 The backend always applies default key redaction at ingest. Register a
 client-side redactor when a value must never even leave your process:

@@ -76,13 +76,13 @@ def test_redaction_can_be_disabled(monkeypatch, api):
     assert api.get(f"/runs/{run_id}").json()["metadata"]["token"] == "visible"
 
 
-def test_custom_redactor_premium_only(monkeypatch, api):
+def test_custom_redactor_experimental_only(monkeypatch, api):
     @register_redactor
     def drop_emails(payload: dict) -> dict:
         return {k: ("[EMAIL]" if k == "email" else v) for k, v in payload.items()}
 
     try:
-        # free mode: custom redactor not applied
+        # standard mode: custom redactor not applied
         run_id = api.post("/runs", json={}).json()["id"]
         api.post(
             f"/runs/{run_id}/events",
@@ -91,8 +91,8 @@ def test_custom_redactor_premium_only(monkeypatch, api):
         ev = api.get(f"/runs/{run_id}/events").json()[0]
         assert ev["payload"]["email"] == "a@b.c"
 
-        # premium: applied
-        monkeypatch.setenv("AFR_PREMIUM_ENABLED", "true")
+        # experimental: applied
+        monkeypatch.setenv("AFR_EXPERIMENTAL_FEATURES_ENABLED", "true")
         api.post(
             f"/runs/{run_id}/events",
             json={"event_type": "log", "payload": {"email": "a@b.c", "message": "hi"}},

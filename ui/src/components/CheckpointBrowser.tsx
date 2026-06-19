@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Checkpoint } from "../api/types";
-import { usePremium } from "../license/LicenseContext";
+import { useExperimental } from "../license/LicenseContext";
 import { fmtClock, shortId } from "../util/format";
 
 export function CheckpointBrowser({
@@ -16,7 +16,7 @@ export function CheckpointBrowser({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const premium = usePremium();
+  const experimental = useExperimental();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [busyFork, setBusyFork] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export function CheckpointBrowser({
                     >
                       ▶ replay from here
                     </button>
-                    {premium && (
+                    {experimental && (
                       <button
                         className="btn btn-mini"
                         disabled={busyFork === c.id}
@@ -107,9 +107,9 @@ export function CheckpointBrowser({
                 </div>
               ))}
             </div>
-            {!premium && (
+            {!experimental && (
               <p className="state-empty" style={{ marginTop: 8 }}>
-                🔒 forking from checkpoints is a premium feature
+                🔒 forking from checkpoints is an opt-in experimental feature
               </p>
             )}
             {error && <div className="banner-error">{error}</div>}

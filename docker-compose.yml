@@ -7,9 +7,13 @@ services:
       # on the network, change to "8700:8700" AND set AFR_API_TOKEN.
       - "127.0.0.1:8700:8700"
     environment:
-      # Premium stays opt-in; compose must not bake in a premium entitlement.
-      AFR_PREMIUM_ENABLED: ${AFR_PREMIUM_ENABLED:-false}
+      # Advanced/experimental features stay opt-in (local flag — no billing).
+      AFR_EXPERIMENTAL_FEATURES_ENABLED: ${AFR_EXPERIMENTAL_FEATURES_ENABLED:-false}
       AFR_REDACTION_ENABLED: ${AFR_REDACTION_ENABLED:-true}
+      # Replay plan preparation is on so `make demo-docker` works end to end.
+      # The server never executes your code; execution stays client-side
+      # (see docs/replay.md).
+      AFR_REPLAY_ENABLED: ${AFR_REPLAY_ENABLED:-true}
       # SECURITY: no auth unless a token is set. Publishing 8700 exposes the API
       # to your host/network — set AFR_API_TOKEN for any non-loopback use.
       AFR_API_TOKEN: ${AFR_API_TOKEN:-}

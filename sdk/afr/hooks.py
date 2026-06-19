@@ -121,9 +121,10 @@ def _log_replay_event(
 class ReplayContext:
     """Everything a resume handler needs to pick up where the run left off.
 
-    Premium backends attach a per-tool safety plan (tool_plan) and recorded
-    results for mocked tools (mock_results); the helpers below stay safe when
-    talking to a free backend by treating unknown tools as mocked.
+    With advanced replay enabled, the backend attaches a per-tool safety plan
+    (tool_plan) and recorded results for mocked tools (mock_results); the
+    helpers below stay safe when the plan is absent by treating unknown tools
+    as mocked.
     """
 
     run_id: str

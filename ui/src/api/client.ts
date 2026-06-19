@@ -57,7 +57,7 @@ export const api = {
       body: JSON.stringify({ checkpoint_id: checkpointId, mode, approved }),
     }),
   seedDemo: () => request<DemoSeedResult>(`/demo/seed`, { method: "POST" }),
-  // premium
+  // feature availability + opt-in (experimental) features
   getLicense: () => request<License>(`/license`),
   forkRun: (runId: string, checkpointId: string, name?: string) =>
     request<Run>(`/runs/${runId}/fork`, {

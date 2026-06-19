@@ -6,8 +6,8 @@ import pytest
 
 
 @pytest.fixture()
-def premium(monkeypatch):
-    monkeypatch.setenv("AFR_PREMIUM_ENABLED", "true")
+def experimental(monkeypatch):
+    monkeypatch.setenv("AFR_EXPERIMENTAL_FEATURES_ENABLED", "true")
 
 
 def _run_with_checkpoint(api) -> tuple[str, str]:
@@ -24,13 +24,13 @@ def _run_with_checkpoint(api) -> tuple[str, str]:
     return run_id, ckpt["id"]
 
 
-def test_fork_requires_premium(api):
+def test_fork_requires_experimental(api):
     run_id, ckpt_id = _run_with_checkpoint(api)
     r = api.post(f"/runs/{run_id}/fork", json={"checkpoint_id": ckpt_id})
-    assert r.status_code == 402
+    assert r.status_code == 403
 
 
-def test_fork_creates_linked_run_with_checkpoint_state(premium, api):
+def test_fork_creates_linked_run_with_checkpoint_state(experimental, api):
     run_id, ckpt_id = _run_with_checkpoint(api)
 
     r = api.post(f"/runs/{run_id}/fork", json={"checkpoint_id": ckpt_id, "name": "what-if"})
@@ -60,7 +60,7 @@ def test_fork_creates_linked_run_with_checkpoint_state(premium, api):
     assert [f["id"] for f in parent["forks"]] == [fork["id"]]
 
 
-def test_fork_rejects_foreign_checkpoint(premium, api):
+def test_fork_rejects_foreign_checkpoint(experimental, api):
     run_id, _ = _run_with_checkpoint(api)
     other_id, other_ckpt = _run_with_checkpoint(api)
     assert other_id != run_id

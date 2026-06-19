@@ -1,13 +1,23 @@
-# Premium features
+# Feature availability
 
-Enable with `AFR_PREMIUM_ENABLED=true` (license boundary **placeholder** —
-there is no real billing; see `backend/app/license.py`).
+AFR is fully free and open source (MIT). There is no commercial tier and no
+license key — every feature lives in this repository.
 
-The free/premium boundary is enforced in one module
-(`backend/app/license.py`) so a real entitlement check can replace the env
-flag without touching anything else.
+Most of the product is **always on**. A small set of **advanced / experimental**
+features are off by default and turned on with one local flag:
 
-| Feature | Free | Premium |
+```bash
+AFR_EXPERIMENTAL_FEATURES_ENABLED=true
+```
+
+(The older `AFR_PREMIUM_ENABLED` is still honored as a deprecated alias.)
+
+Why gate anything? Two reasons, neither commercial: some surfaces are genuinely
+experimental, and the advanced replay modes can execute real, side-effecting
+tools during replay — keeping them opt-in avoids surprising side effects on a
+fresh install. The whole gate lives in one module (`backend/app/license.py`).
+
+| Feature | Always on | Experimental (opt-in) |
 | --- | :-: | :-: |
 | Recorder (SDK/API/CLI), timeline UI, checkpoints, state-at | ✓ | ✓ |
 | Replay: `dry_run`, `mock_tools` | ✓ | ✓ |
@@ -17,7 +27,10 @@ flag without touching anything else.
 | JSON state diff viewer | — | ✓ |
 | Run tags & notes (+ tag filters) | — | ✓ |
 | Custom redactor hooks | — | ✓ |
-| MCP server stub | — | ✓ |
+| MCP-shaped HTTP prototype | — | ✓ |
+
+When a gated feature is requested while it is off, the API returns `403` with
+`{"error": "experimental_feature_disabled", "feature": ...}`.
 
 ## Replay safety policies
 
@@ -45,7 +58,7 @@ Replay modes and what each tool's plan action becomes:
 
 The replay ticket (shown as the **Replay Plan** in the UI) carries
 `tool_plan` (per-tool action) and `mock_results` (the last recorded
-successful result for every mocked tool — record/replay mocking for free).
+successful result for every mocked tool — record/replay mocking built in).
 The server computes the plan; your resume handler enforces it, and
 `ctx.call_tool` makes that automatic:
 
@@ -69,8 +82,8 @@ browser).
 
 ## Redaction
 
-Default key redaction is **always on**, free or premium, because shipping
-secrets to disk is not a feature tier. Substring matches (case-insensitive)
+Default key redaction is **always on**, regardless of the feature flag, because
+shipping secrets to disk is never gated. Substring matches (case-insensitive)
 cover `api_key`, `authorization`, `password`, `secret`, `access_token`,
 `refresh_token`, `session_token`, `private_key`, `credential`, `cookie`, …;
 exact matches cover bare `token`, `bearer`, `auth`, `jwt`. Deliberately *not*
@@ -78,7 +91,7 @@ matched: usage telemetry like `prompt_tokens`, `completion_tokens`,
 `total_tokens`, `token_count` — your token metrics survive. Disable with
 `AFR_REDACTION_ENABLED=false`; extend with `AFR_REDACT_KEYS=ssn,internal_id`.
 
-Premium adds custom redactor hooks:
+Custom redactor hooks are an opt-in (experimental) feature:
 
 ```python
 # backend embedders
@@ -104,6 +117,6 @@ afr runs list --tag regression
 
 API: `PATCH /runs/{run_id}` with `{name?, tags?, notes?}`.
 
-## MCP stub
+## MCP-shaped HTTP prototype
 
 See [mcp.md](mcp.md).

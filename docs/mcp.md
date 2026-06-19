@@ -1,9 +1,14 @@
-# MCP server stub (premium)
+# MCP-shaped HTTP prototype (opt-in / experimental)
 
-AFR ships an MCP-shaped tool layer so an LLM client (Claude Code, etc.) can
-inspect and replay agent runs. **It is an explicit stub**: the tool registry,
-schemas, and dispatch are real and tested; the stdio MCP transport is not
-wired yet (`backend/app/mcp/server.py` documents exactly where it goes).
+AFR ships an MCP-shaped tool layer so the AFR engine's surface is exposed in
+MCP terms. **It is an explicit prototype, not a conformant MCP server.** The
+tool registry, JSON-Schema definitions, and call dispatch are real and tested
+and reachable over plain HTTP — but there is **no stdio / SSE / JSON-RPC MCP
+transport**, so MCP clients (Claude Code, etc.) cannot connect to it yet.
+`backend/app/mcp/server.py` documents exactly where a real transport goes.
+
+This is an opt-in (experimental) feature — enable it with
+`AFR_EXPERIMENTAL_FEATURES_ENABLED=true`.
 
 ## Tools
 
@@ -17,10 +22,10 @@ wired yet (`backend/app/mcp/server.py` documents exactly where it goes).
 | `afr_fork_run` | fork a run from a checkpoint |
 | `afr_tag_run` | replace a run's tags |
 
-## HTTP stub
+## HTTP prototype
 
-With `AFR_PREMIUM_ENABLED=true` (and `Authorization: Bearer <token>` if the
-server sets `AFR_API_TOKEN` — `/mcp/*` is a protected route):
+With `AFR_EXPERIMENTAL_FEATURES_ENABLED=true` (and `Authorization: Bearer
+<token>` if the server sets `AFR_API_TOKEN` — `/mcp/*` is a protected route):
 
 ```bash
 curl http://127.0.0.1:8700/mcp/tools
@@ -31,12 +36,12 @@ curl -X POST http://127.0.0.1:8700/mcp/call \
 ```
 
 Responses: `{"ok": true, "tool": ..., "result": ...}`; errors map to 404
-(unknown tool/run), 422 (bad arguments), 402 (premium disabled).
+(unknown tool/run), 422 (bad arguments), 403 (feature disabled).
 
 ## Manifest dump
 
 ```bash
-AFR_PREMIUM_ENABLED=true python -m app.mcp.server   # from backend/
+AFR_EXPERIMENTAL_FEATURES_ENABLED=true python -m app.mcp.server   # from backend/
 ```
 
 ## Making it real

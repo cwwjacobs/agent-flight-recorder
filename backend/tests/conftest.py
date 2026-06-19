@@ -11,7 +11,8 @@ def isolated_db(tmp_path, monkeypatch):
     """Every test gets its own SQLite file and a clean feature-flag slate."""
     monkeypatch.setenv("AFR_DB_PATH", str(tmp_path / "test-afr.db"))
     for var in (
-        "AFR_PREMIUM_ENABLED",
+        "AFR_EXPERIMENTAL_FEATURES_ENABLED",
+        "AFR_PREMIUM_ENABLED",  # deprecated alias — cleared too for a clean slate
         "AFR_REDACTION_ENABLED",
         "AFR_REDACT_KEYS",
         "AFR_API_TOKEN",

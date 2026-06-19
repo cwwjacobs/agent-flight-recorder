@@ -1,4 +1,4 @@
-"""Replay safety policies (premium).
+"""Replay safety policies (advanced replay modes).
 
 Tools carry a *policy* (recorded on their tool_call payloads, e.g. via
 `@afr.record_tool_call(policy="safe")`); a replay request carries a *mode*.
@@ -16,10 +16,11 @@ Unknown tools default to `side_effecting` — the safe assumption.
 Actions: allow = really execute · mock = use recorded result / fake ·
 skip = plan only, nothing runs · block = refuse outright.
 
-Modes `allow_safe_tools` and `allow_side_effects` require premium; `dry_run`
-and `mock_tools` are free. The default mode is `dry_run` — by default nothing
-executes, and no mode short of explicit `allow_side_effects` (+ approval for
-gated tools) ever executes a side-effecting tool.
+Modes `allow_safe_tools` and `allow_side_effects` are opt-in advanced features
+(`AFR_EXPERIMENTAL_FEATURES_ENABLED=true`); `dry_run` and `mock_tools` are
+always on. The default mode is `dry_run` — by default nothing executes, and no
+mode short of explicit `allow_side_effects` (+ approval for gated tools) ever
+executes a side-effecting tool.
 """
 
 from __future__ import annotations
@@ -44,7 +45,9 @@ MODE_ALLOW_SAFE_TOOLS = "allow_safe_tools"
 MODE_ALLOW_SIDE_EFFECTS = "allow_side_effects"
 
 MODES = (MODE_DRY_RUN, MODE_MOCK_TOOLS, MODE_ALLOW_SAFE_TOOLS, MODE_ALLOW_SIDE_EFFECTS)
-FREE_MODES = (MODE_DRY_RUN, MODE_MOCK_TOOLS)
+# Always-on, inherently safe modes (nothing executes). The other two modes are
+# opt-in advanced features gated by AFR_EXPERIMENTAL_FEATURES_ENABLED.
+SAFE_MODES = (MODE_DRY_RUN, MODE_MOCK_TOOLS)
 
 ACTION_ALLOW = "allow"
 ACTION_MOCK = "mock"

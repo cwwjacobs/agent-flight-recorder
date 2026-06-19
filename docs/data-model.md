@@ -12,8 +12,8 @@ Schema versioned via `PRAGMA user_version` with idempotent migrations.
 | name | TEXT | auto-named if omitted |
 | status | TEXT | `running` → `completed` \| `failed` |
 | metadata | TEXT | JSON |
-| tags | TEXT | JSON array (premium writes; always present in responses) |
-| notes | TEXT | free text (premium writes) |
+| tags | TEXT | JSON array (experimental-only writes; always present in responses) |
+| notes | TEXT | free text (experimental-only writes) |
 | parent_run_id | TEXT | set on forked runs — the run it branched from |
 | fork_checkpoint_id | TEXT | the checkpoint the fork branched at |
 | created_at / ended_at | TEXT | ISO-8601 UTC |

@@ -38,24 +38,18 @@ Resolution path:
 
 ---
 
-### Premium boundary
+### Feature boundary (resolved)
 
-Question: What is free, what is premium, and what proof supports that split?
+Question: What is always on, what is opt-in, and what backs that split?
 
-Need to inspect:
-
-- paid feature checks
-- 402 responses
-- premium analysis endpoints/components
-- README claims
-- UI affordances
-
-Resolution path:
-
-1. list premium claims
-2. map each claim to code path
-3. remove unsupported claims or add proof
-4. write simple free/premium table
+Resolved: AFR is fully MIT-licensed and free — there is no commercial tier. Most of
+the product is always on. A small set of advanced/experimental features (state
+diff, forked replay, advanced replay modes, custom redactors, tags/notes, the
+MCP-shaped HTTP prototype) are off by default and enabled with one local flag
+(`AFR_EXPERIMENTAL_FEATURES_ENABLED`). The whole gate lives in
+`backend/app/license.py`; a disabled feature returns `403`
+`experimental_feature_disabled`. See [../features.md](../features.md) for the
+table.
 
 ---
 

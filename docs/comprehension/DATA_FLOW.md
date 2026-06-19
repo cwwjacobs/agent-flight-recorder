@@ -92,7 +92,7 @@ AFR drifts if it becomes:
 - a generic logging app
 - a generic dashboard
 - an opaque replay engine Core cannot explain
-- a pile of premium claims without proof exports
+- a pile of feature claims without proof exports
 - a UI that hides the run instead of clarifying it
 
 Return to the one-line flow when lost.

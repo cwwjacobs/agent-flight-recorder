@@ -49,5 +49,5 @@ def resume(ctx: afr.ReplayContext) -> dict:
         print(f"[resume] search_hotels -> {ctx.action_for('search_hotels')}: {hotel}")
 
     # A real handler would rebuild your agent from ctx.state and keep going,
-    # typically recording into a fresh run (or a Premium fork of this one).
+    # typically recording into a fresh run (or a fork of this one).
     return {"resumed_from": ctx.label, "remaining_steps": remaining}

@@ -325,7 +325,8 @@ def cmd_license(args: argparse.Namespace) -> None:
     if args.json:
         emit_json(info)
         return
-    print(f"plan: {info['plan']}")
+    experimental = info.get("experimental_enabled", False)
+    print("features: experimental on" if experimental else "features: standard")
     for feature, enabled in info["features"].items():
         print(f"  {'✓' if enabled else '✗'} {feature}")
     if info.get("hint"):
@@ -371,9 +372,12 @@ def run_doctor(client: AFRClient, api_url: str, url_source: str, read_only: bool
 
     try:
         info = client.get_license()
-        plan = info.get("plan", "?")
-        print(f"  [ok]   license: {plan} plan"
-              + ("" if plan == "premium" else "  (premium off — set AFR_PREMIUM_ENABLED=true to compare)"))
+        experimental = info.get("experimental_enabled", False)
+        print(
+            "  [ok]   features: " + ("experimental on" if experimental else "standard")
+            + ("" if experimental
+               else "  (experimental off — set AFR_EXPERIMENTAL_FEATURES_ENABLED=true to enable)")
+        )
     except (AFRAPIError, httpx.HTTPError) as exc:
         ok = False
         print(f"  [FAIL] /license failed: {exc}")
@@ -451,7 +455,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_list = runs_sub.add_parser("list", help="list runs")
     p_list.add_argument("--status", choices=["running", "completed", "failed"])
-    p_list.add_argument("--tag", help="filter by tag (premium)")
+    p_list.add_argument("--tag", help="filter by tag (experimental)")
     p_list.add_argument("--limit", type=int, default=50)
     p_list.set_defaults(func=cmd_runs_list)
 
@@ -473,7 +477,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         default="dry_run",
         choices=["dry_run", "mock_tools", "allow_safe_tools", "allow_side_effects"],
-        help="replay safety mode (default: dry_run; allow_* modes are premium)",
+        help="replay safety mode (default: dry_run; allow_* modes are experimental opt-in)",
     )
     p_replay.add_argument(
         "--approved",
@@ -486,25 +490,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_replay.set_defaults(func=cmd_replay)
 
-    p_fork = sub.add_parser("fork", help="fork a new run from a checkpoint (premium)")
+    p_fork = sub.add_parser("fork", help="fork a new run from a checkpoint (experimental)")
     p_fork.add_argument("run_id")
     p_fork.add_argument("--from", dest="from_checkpoint", required=True, metavar="CHECKPOINT")
     p_fork.add_argument("--name", help="name for the forked run")
     p_fork.set_defaults(func=cmd_fork)
 
-    p_tag = sub.add_parser("tag", help="add/remove run tags (premium)")
+    p_tag = sub.add_parser("tag", help="add/remove run tags (experimental)")
     p_tag.add_argument("run_id")
     p_tag.add_argument("tags", nargs="+", metavar="TAG")
     p_tag.add_argument("--remove", action="store_true", help="remove instead of add")
     p_tag.set_defaults(func=cmd_tag)
 
-    p_note = sub.add_parser("note", help="set run notes (premium)")
+    p_note = sub.add_parser("note", help="set run notes (experimental)")
     p_note.add_argument("run_id")
     p_note.add_argument("text")
     p_note.add_argument("--append", action="store_true", help="append instead of replace")
     p_note.set_defaults(func=cmd_note)
 
-    p_license = sub.add_parser("license", help="show plan and feature flags")
+    p_license = sub.add_parser("license", help="show available features and opt-in flags")
     p_license.set_defaults(func=cmd_license)
 
     p_export = sub.add_parser("export", help="export a run as a JSON bundle")

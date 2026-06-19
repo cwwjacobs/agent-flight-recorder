@@ -28,7 +28,7 @@ def get_run(run_id: str) -> dict:
 
 
 def get_run_detail(run_id: str) -> dict:
-    """Run plus its fork children (premium lineage view)."""
+    """Run plus its fork children (fork lineage view)."""
     run = get_run(run_id)
     run["forks"] = [
         {

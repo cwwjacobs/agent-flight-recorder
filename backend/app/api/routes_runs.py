@@ -8,7 +8,7 @@ from app.api.errors import not_found_to_404
 from app.engine import checkpoints as ckpt_engine
 from app.engine import forks as fork_engine
 from app.engine import runs as run_engine
-from app.license import premium_feature
+from app.license import experimental_feature
 from app.schemas import (
     CheckpointIn,
     CheckpointOut,
@@ -46,7 +46,7 @@ def get_run(run_id: str) -> dict:
 @router.patch(
     "/runs/{run_id}",
     response_model=RunOut,
-    dependencies=[premium_feature("tags_notes")],
+    dependencies=[experimental_feature("tags_notes")],
 )
 def update_run(run_id: str, body: RunUpdate) -> dict:
     with not_found_to_404():
@@ -57,7 +57,7 @@ def update_run(run_id: str, body: RunUpdate) -> dict:
     "/runs/{run_id}/fork",
     response_model=RunOut,
     status_code=201,
-    dependencies=[premium_feature("forked_replay")],
+    dependencies=[experimental_feature("forked_replay")],
 )
 def fork_run(run_id: str, body: ForkIn) -> dict:
     with not_found_to_404():

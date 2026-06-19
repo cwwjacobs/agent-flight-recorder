@@ -7,11 +7,11 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 | --- | --- | --- | --- |
 | GET | `/health` | — | service status |
 | POST | `/runs` | `{name?, metadata?}` | created run (201) |
-| GET | `/license` | auth when configured | plan + feature flags |
+| GET | `/license` | auth when configured | feature availability flags |
 | GET | `/runs` | — (`?status=&tag=&limit=&offset=`) | run list incl. `last_error` + `event_type_counts` |
 | GET | `/runs/{run_id}` | — | one run incl. fork lineage |
-| PATCH | `/runs/{run_id}` | `{name?, tags?, notes?}` | updated run (premium) |
-| POST | `/runs/{run_id}/fork` | `{checkpoint_id, name?}` | new run forked from a checkpoint (premium, 201) |
+| PATCH | `/runs/{run_id}` | `{name?, tags?, notes?}` | updated run (experimental) |
+| POST | `/runs/{run_id}/fork` | `{checkpoint_id, name?}` | new run forked from a checkpoint (experimental, 201) |
 | POST | `/runs/{run_id}/end` | `{status?: completed\|failed}` | updated run |
 | POST | `/runs/{run_id}/events` | `{event_type, name?, payload?, created_at?}` | created event (201) |
 | GET | `/runs/{run_id}/events` | — (`?event_type=&limit=&offset=`) | events in seq order |
@@ -20,8 +20,8 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 | GET | `/runs/{run_id}/state-at/{checkpoint_id}` | — (`?reconstruct=true` to re-fold) | `{checkpoint, state, source}` |
 | POST | `/runs/{run_id}/replay` | `{checkpoint_id, mode?, approved?}` | replay ticket (the UI calls it a *Replay Plan*) |
 | POST | `/demo/seed` | — | seed the demo incident (201; 403 if `AFR_DEMO_SEED_ENABLED=false`) |
-| GET | `/mcp/tools` | — | MCP stub tool registry (premium) |
-| POST | `/mcp/call` | `{tool, arguments?}` | invoke an MCP stub tool (premium) |
+| GET | `/mcp/tools` | — | MCP-shaped prototype tool registry (experimental) |
+| POST | `/mcp/call` | `{tool, arguments?}` | invoke an MCP-shaped prototype tool (experimental) |
 
 ## Event types
 
@@ -37,7 +37,7 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
   `{model, provider, input, output, status, duration_ms}`.
 - A `state_snapshot` payload is `{state: {...}, mode: "replace"|"merge"}`.
 - Appends are accepted after a run ends (late buffers, replay bookkeeping).
-- Errors: 404 unknown run/checkpoint, 422 validation, 402 premium feature
+- Errors: 404 unknown run/checkpoint, 422 validation, 403 experimental feature
   disabled, 401 missing/wrong bearer token (only when `AFR_API_TOKEN` is set).
 
 ## Auth (optional)
