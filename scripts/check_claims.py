@@ -133,7 +133,9 @@ def check_required(errors: list[str]) -> None:
 
 
 def check_banned_phrases(errors: list[str]) -> None:
-    for path in PUBLIC_DOCS + [ROOT / "docs" / "claim-contract.md"]:
+    # The contract document intentionally lists red phrases, so this check scans
+    # user-facing docs only. The structural check below confirms the contract exists.
+    for path in PUBLIC_DOCS:
         text = _read(path)
         if not text:
             errors.append(f"missing public doc: {path.relative_to(ROOT)}")
