@@ -3,57 +3,80 @@
 [![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Open, localhost-first black box infrastructure for AI agents.**
+**Local-first run recorder for tool-using AI agents.**
 
-Agent Flight Recorder (AFR) records what an autonomous agent did, preserves the state that led to a failure, and helps operators safely replay from a checkpoint without repeating real-world side effects.
+Agent Flight Recorder (AFR) records the observable boundary of an agent run: model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests.
 
-As agents begin sending messages, calling APIs, changing records, and moving money, teams need more than observability. They need an accountability layer: a way to inspect the actual event trail, reconstruct the decisive state, and test a recovery path before the same tool calls fire again.
+AFR does not expose a model's private reasoning, hidden chain-of-thought, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
 
 ```text
-1. Record        - model calls, tools, state snapshots, checkpoints
-2. Inspect       - walk the exact event timeline and state at failure time
-3. Replay safely - resume from a checkpoint with side-effecting tools mocked or gated
+1. Record   - capture model calls, tool calls, state snapshots, checkpoints, and errors
+2. Inspect  - review the recorded event timeline and recorded state around a failure
+3. Replay   - prepare a replay ticket using mocked or gated tool execution
 ```
 
 ## Why AFR exists
 
-AI agent failures are hard to debug because the decisive state is often gone by the time the failure is noticed. Reproducing the issue can require rerunning model calls, repeating tool calls, and risking duplicated side effects such as emails, payments, database writes, or ticket updates.
+Tool-using agents can fail after prompts, tool calls, state updates, or external side effects have already happened. By the time the failure is noticed, the exact run context may be scattered across logs or gone.
 
-AFR keeps the evidence:
+AFR keeps a local record of the run boundary:
 
-- append-only event timelines
-- deterministic state reconstruction
+- append-only recorded event timelines
+- recorded state snapshots and checkpoint metadata
 - checkpoint inspection
-- replay tickets
-- side-effect-aware replay policies
-- CLI and web UI inspection paths
+- replay tickets and replay plans
+- side-effect-aware replay helpers
+- CLI and optional web UI inspection paths
 - SQLite-first local storage
 - best-effort redaction at ingest
 
-## What makes AFR different
+## What AFR does
 
-Most agent observability tools help you see what happened. AFR is aimed at the next step: safely returning to the moment that broke.
+AFR is intended for local development, debugging, evaluation, and audit workflows. It helps answer practical questions:
 
-The core wedge is **checkpoint replay with side-effect-aware policy enforcement**. AFR reconstructs the run state and prepares a replay plan; your resume handler decides how tool calls are handled during replay, including mock, skip, block, and allow decisions.
+- What did the agent receive?
+- What did the model return?
+- What tools were requested or executed?
+- What state was recorded before the failure?
+- Which checkpoint can be used to prepare a replay request?
+- Which side-effecting tools should be mocked, skipped, blocked, or explicitly allowed?
 
-That makes AFR useful for local debugging today and points toward a larger goal: auditable, privacy-preserving trust infrastructure for autonomous agent systems.
+The replay boundary is explicit. The backend reconstructs recorded state and prepares a replay ticket. It does not execute user code. A user-provided resume handler owns replay execution and should use the SDK helpers to honor mock, skip, block, and allow decisions.
+
+## What AFR does not claim
+
+AFR is not a model interpretability system. It does not recover true model intent, private reasoning, hidden chain-of-thought, neural activations, or training traces.
+
+AFR is not an enterprise security product or sandbox by itself. Recorded prompts, tool payloads, and state snapshots can contain sensitive data. Redaction is best-effort, not a guarantee.
+
+AFR is not a guarantee that every state change was captured. State reconstruction is limited to events and snapshots actually recorded by the SDK, CLI, API, or adapter path in use.
 
 ## Quickstart
 
+Docker builds the web UI, serves it alongside the API on `http://127.0.0.1:8700`, and stores data in a local Docker volume:
+
 ```bash
-docker compose up --build     # backend + UI on http://localhost:8700
+docker compose up --build     # backend + UI on http://127.0.0.1:8700
 make demo-docker              # seed the checkout-agent-payment-timeout demo incident
-open http://localhost:8700
+open http://127.0.0.1:8700
 ```
 
-Without Docker:
+Without Docker (the backend, SDK, and CLI work on their own; the UI is optional):
 
 ```bash
 make install
-make serve
-make build-ui
+make serve                    # API on http://127.0.0.1:8700
+make build-ui                 # optional: build the UI so the backend serves ui/dist
 make demo
 afr doctor
+```
+
+Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
+
+```bash
+export AFR_REPLAY_ENABLED=true
+# Docker: pass the same variable into compose
+AFR_REPLAY_ENABLED=true docker compose up --build
 ```
 
 ## Record your agent
@@ -86,10 +109,11 @@ def resume(ctx: afr.ReplayContext):
     agent = MyAgent.from_state(ctx.state)
     return agent.continue_run()
 
+# Requires AFR_REPLAY_ENABLED=true in the replaying process and backend.
 afr.replay(run_id, checkpoint_id, mode="mock_tools")
 ```
 
-The server reconstructs state and prepares a replay plan. It does not execute user code. Your resume handler enforces the plan, including mock, skip, block, and allow decisions for tool calls.
+The server reconstructs recorded state and prepares a replay ticket. It does not execute user code. The resume handler enforces the plan when it uses the SDK helpers, including mock, skip, block, and allow decisions for tool calls.
 
 ## Integrations
 
@@ -115,7 +139,8 @@ See:
 
 AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can contain sensitive information.
 
-- The backend binds to `127.0.0.1` by default.
+- The backend binds to `127.0.0.1` by default for local runs.
+- Docker publishes the service to `127.0.0.1:8700` on the host by default.
 - CORS is restricted to local dev origins by default.
 - Set `AFR_API_TOKEN=<token>` before exposing AFR outside loopback.
 - Redaction runs at ingest and is best-effort, not a guarantee.
@@ -127,7 +152,7 @@ AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can
 backend/   FastAPI app: API, replay engine, storage, schemas
 sdk/       Python SDK: client, context, hooks, wrappers, integrations
 cli/       afr CLI
-ui/        Vite + React + TypeScript operator console
+ui/        React/Vite operator console source
 examples/  runnable offline demo agents
 scripts/   demo and smoke helpers
 docs/      quickstart, SDK, CLI, API, replay, data model, integrations
