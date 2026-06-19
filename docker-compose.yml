@@ -10,8 +10,10 @@ services:
       # Premium stays opt-in; compose must not bake in a premium entitlement.
       AFR_PREMIUM_ENABLED: ${AFR_PREMIUM_ENABLED:-false}
       AFR_REDACTION_ENABLED: ${AFR_REDACTION_ENABLED:-true}
+      # Replay is deliberately opt-in. Set AFR_REPLAY_ENABLED=true to request replay tickets.
+      AFR_REPLAY_ENABLED: ${AFR_REPLAY_ENABLED:-false}
       # SECURITY: no auth unless a token is set. Publishing 8700 exposes the API
-      # to your host/network — set AFR_API_TOKEN for any non-loopback use.
+      # to your host/network, so set AFR_API_TOKEN for any non-loopback use.
       AFR_API_TOKEN: ${AFR_API_TOKEN:-}
       AFR_CORS_ORIGINS: ${AFR_CORS_ORIGINS:-}
       AFR_DEMO_SEED_ENABLED: ${AFR_DEMO_SEED_ENABLED:-true}
