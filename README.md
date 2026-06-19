@@ -3,19 +3,21 @@
 [![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**AI agent observability, replay debugging, and checkpoint inspection for LLM apps.**
+**Open, localhost-first black box infrastructure for AI agents.**
 
-Agent Flight Recorder (AFR) is a localhost-first black box for Python agents. It records model calls, tool calls, state snapshots, checkpoints, logs, and errors into a structured SQLite timeline so failures can be inspected and replayed without losing the state that caused them.
+Agent Flight Recorder (AFR) records what an autonomous agent did, preserves the state that led to a failure, and helps operators safely replay from a checkpoint without repeating real-world side effects.
+
+As agents begin sending messages, calling APIs, changing records, and moving money, teams need more than observability. They need an accountability layer: a way to inspect the actual event trail, reconstruct the decisive state, and test a recovery path before the same tool calls fire again.
 
 ```text
-1. Record        — model calls, tools, state snapshots, checkpoints
-2. Inspect       — walk the exact event timeline and state at failure time
-3. Replay safely — resume from a checkpoint with side-effecting tools mocked or gated
+1. Record        - model calls, tools, state snapshots, checkpoints
+2. Inspect       - walk the exact event timeline and state at failure time
+3. Replay safely - resume from a checkpoint with side-effecting tools mocked or gated
 ```
 
 ## Why AFR exists
 
-AI agent failures are hard to debug because the decisive state is often gone by the time the failure is noticed. Reproducing the issue can require rerunning model calls, repeating tool calls, and risking duplicated side effects.
+AI agent failures are hard to debug because the decisive state is often gone by the time the failure is noticed. Reproducing the issue can require rerunning model calls, repeating tool calls, and risking duplicated side effects such as emails, payments, database writes, or ticket updates.
 
 AFR keeps the evidence:
 
@@ -27,6 +29,14 @@ AFR keeps the evidence:
 - CLI and web UI inspection paths
 - SQLite-first local storage
 - best-effort redaction at ingest
+
+## What makes AFR different
+
+Most agent observability tools help you see what happened. AFR is aimed at the next step: safely returning to the moment that broke.
+
+The core wedge is **checkpoint replay with side-effect-aware policy enforcement**. AFR reconstructs the run state and prepares a replay plan; your resume handler decides how tool calls are handled during replay, including mock, skip, block, and allow decisions.
+
+That makes AFR useful for local debugging today and points toward a larger goal: auditable, privacy-preserving trust infrastructure for autonomous agent systems.
 
 ## Quickstart
 
@@ -130,15 +140,21 @@ make test
 make smoke
 ```
 
-## Release status
+## Project status
 
-This repository is prepared for an OSS submission / release freeze. The current public license is MIT with Terminus Protocol attribution.
+AFR is a public OSS baseline maintained by Corey Jacobs / cwwjacobs. The project is MIT licensed with Terminus Protocol copyright and notice metadata preserved in the repository.
+
+Current focus areas:
+
+- hardening replay policy behavior
+- expanding adapter coverage beyond the current Python and LangChain / LangGraph paths
+- improving diff and checkpoint inspection flows
+- preserving local-first privacy while making agent failures easier to reproduce safely
 
 See:
 
 - [LICENSE](LICENSE)
 - [NOTICE](NOTICE)
-- [SUBMISSION_NOTES.md](SUBMISSION_NOTES.md)
 - [OPEN_SOURCE_FREEZE.md](OPEN_SOURCE_FREEZE.md)
 
 ## License
