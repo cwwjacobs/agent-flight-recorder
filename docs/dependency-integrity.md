@@ -1,7 +1,7 @@
 # Dependency integrity plan
 
 This document records the dependency-integrity controls implemented for AI Dev
-Readiness Phase 01 and the remaining risk to address in later phases.
+Readiness Phase 01 and the containment repair applied on 2026-06-19.
 
 ## Current controls
 
@@ -16,24 +16,26 @@ Readiness Phase 01 and the remaining risk to address in later phases.
   - `uvicorn==0.49.0`
   - `pytest==9.1.0`
   - `httpx==0.28.1`
-  - `httpx2==2.4.0`
   - `anyio==4.13.0`
 
-The Docker build, CI workflow, and `make install` all consume this file through
-pip's `--constraint` option. This constrains declared dependencies without
-pretending to provide a complete cryptographic lockfile.
+### 2. Containment removal: `httpx2`
 
-### 2. Dockerfile base-image pinning
+`httpx2==2.4.0` previously appeared in `backend/requirements.txt` and
+`httpx2>=2.4,<3.0` previously appeared in `backend/pyproject.toml` under the
+`dev` extra.
 
-Base images use patch-version tags instead of floating major-version tags:
+That package name was removed during containment because it was not required by
+AFR source code and is suspiciously close to the legitimate `httpx` test client
+dependency already used by FastAPI and Starlette tests. Treat the prior entries
+as a dependency-confusion / typo risk unless independently proven safe.
 
-- `node:20.19.3-slim` for the UI build stage
-- `python:3.12.13-slim` for the runtime stage
+### 3. UI build quarantine
 
-Digest pinning (`image@sha256:...`) is the next step and is tracked below under
-**Remaining risk / next steps**.
+The legacy React/Vite UI is preserved in the repository for evidence and later
+review, but the CI UI build job is disabled during containment. This prevents
+CI from running `npm ci` or the bundler while the package tree is under review.
 
-### 3. CI action pinning
+### 4. CI action pinning
 
 Workflows in `.github/workflows/ci.yml` pin official GitHub Actions to specific
 commit SHAs with a version comment, e.g.:
@@ -64,14 +66,15 @@ Pinned actions:
 ## Remaining risk / next steps
 
 - **No hash verification**: `requirements.txt` pins by version, not by package
-  hash. A future improvement is to adopt a lock tool (e.g., `pip-compile`,
-  Poetry, or `uv`) and commit a generated lockfile with hashes.
+  hash. A future improvement is to adopt a lock tool such as `pip-compile`,
+  Poetry, or `uv` and commit a generated lockfile with hashes.
 - **No complete transitive lock**: Direct dependencies and one compatibility
   dependency are pinned. Other transitive packages can still drift.
 - **Docker digest pinning**: Base images are pinned to patch-version tags, not
-  immutable SHA digests. The next step is to switch to digest references such as
-  `node:20.19.3-slim@sha256:...` and `python:3.12.13-slim@sha256:...` after
+  immutable SHA digests. The next step is to switch to digest references after
   verifying the digests against Docker Hub or a trusted registry mirror.
+- **Legacy UI review**: keep the existing UI preserved but inactive until its
+  dependency tree and source behavior have been reviewed.
 - **Action update cadence**: SHA-pinned actions do not auto-update. Set up
   Dependabot or a similar tool to open PRs when new action releases are
   available.

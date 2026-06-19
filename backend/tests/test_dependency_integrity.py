@@ -21,5 +21,5 @@ def test_repair_dependencies_are_exactly_pinned():
     assert "uvicorn==0.49.0" in requirements
     assert "pytest==9.1.0" in requirements
     assert "httpx==0.28.1" in requirements
-    assert "httpx2==2.4.0" in requirements
+    assert "httpx2==2.4.0" not in requirements
     assert "anyio==4.13.0" in requirements
