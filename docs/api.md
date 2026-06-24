@@ -1,6 +1,6 @@
 # HTTP API reference
 
-Base URL: `http://127.0.0.1:8700` (also mirrored under `/api` for the web UI).
+Base URL: `http://127.0.0.1:8700` (also mirrored under `/api` for legacy clients).
 Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 
 | Method | Path | Body | Returns |
@@ -18,7 +18,7 @@ Interactive docs: `http://127.0.0.1:8700/docs` (FastAPI/OpenAPI).
 | POST | `/runs/{run_id}/checkpoint` | `{label?, state?}` | created checkpoint (201) |
 | GET | `/runs/{run_id}/checkpoints` | — | checkpoints in order |
 | GET | `/runs/{run_id}/state-at/{checkpoint_id}` | — (`?reconstruct=true` to re-fold) | `{checkpoint, state, source}` |
-| POST | `/runs/{run_id}/replay` | `{checkpoint_id, mode?, approved?}` | replay ticket (the UI calls it a *Replay Plan*) |
+| POST | `/runs/{run_id}/replay` | `{checkpoint_id, mode?, approved?}` | replay ticket |
 | POST | `/demo/seed` | — | seed the demo incident (201; 403 if `AFR_DEMO_SEED_ENABLED=false`) |
 | GET | `/mcp/tools` | — | MCP stub tool registry (premium) |
 | POST | `/mcp/call` | `{tool, arguments?}` | invoke an MCP stub tool (premium) |
@@ -49,7 +49,6 @@ API endpoint at the root and under the `/api` mirror requires:
 Authorization: Bearer <token>
 ```
 
-`/health`, the OpenAPI docs, and the static UI stay open. API clients may send
+`/health`, the OpenAPI docs, and any served legacy static UI stay open. API clients may send
 `Authorization: Bearer <token>` or `X-AFR-Token: <token>`. The SDK and CLI
-pick the token up from the `AFR_API_TOKEN` env var automatically; the
-web UI prompts for it and keeps it in localStorage.
+pick the token up from the `AFR_API_TOKEN` env var automatically.

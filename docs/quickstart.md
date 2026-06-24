@@ -1,16 +1,18 @@
 # Quickstart
 
-The fastest path is Docker + the seeded demo:
+The fastest AFR v0.2 path is CLI-first and local-first:
 
 ```bash
-docker compose up --build      # backend + UI on http://127.0.0.1:8700
-make demo-docker               # seed checkout-agent-payment-timeout
-open http://127.0.0.1:8700
+make install
+make serve                     # backend API on http://127.0.0.1:8700
+make demo                      # record the toy agent run
+.venv/bin/afr doctor
+.venv/bin/afr runs list
 ```
 
-The Docker image builds the web UI and serves it from the FastAPI backend. Data is stored in a local Docker volume.
+No React, Vite, Next, Vue, Svelte, npm, or other frontend framework dependency is required for recording, inspecting, exporting, replay-ticket generation, or regression-case generation. See [frontend-boundary.md](frontend-boundary.md).
 
-Everything below is the no-Docker path.
+Docker remains available for local server packaging and demo seeding, but it is not the source of truth for the v0.2 operator surface.
 
 ## 1. Install
 
@@ -56,17 +58,15 @@ CLI:
 .venv/bin/afr events <run_id>
 ```
 
-Web UI (dev mode, hot reload):
+Export:
 
 ```bash
-cd ui && npm install && npm run dev    # http://127.0.0.1:5173 (proxies /api to :8700)
+.venv/bin/afr export <run_id> -o incident.json
 ```
 
-Web UI (production, served by the backend):
+Legacy UI:
 
-```bash
-cd ui && npm install && npm run build  # backend now serves it at http://127.0.0.1:8700
-```
+The React/Vite UI path is preserved for evidence and later review only. It is not part of AFR v0.2 and must not become required for the CLI Visibility Cut.
 
 ## 5. Replay from a checkpoint
 

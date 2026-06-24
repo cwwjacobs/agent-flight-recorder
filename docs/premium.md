@@ -9,7 +9,7 @@ flag without touching anything else.
 
 | Feature | Free | Premium |
 | --- | :-: | :-: |
-| Recorder (SDK/API/CLI), timeline UI, checkpoints, state-at | ✓ | ✓ |
+| Recorder (SDK/API/CLI), timeline inspection, checkpoints, state-at | ✓ | ✓ |
 | Replay: `dry_run`, `mock_tools` | ✓ | ✓ |
 | Default secret-key redaction | ✓ | ✓ |
 | Replay: `allow_safe_tools`, `allow_side_effects` + per-tool policy plans | — | ✓ |
@@ -43,7 +43,7 @@ Replay modes and what each tool's plan action becomes:
 | `allow_safe_tools` | **allow** | mock | mock | mock |
 | `allow_side_effects` | **allow** | **allow** | mock | **allow** if `approved` else **block** |
 
-The replay ticket (shown as the **Replay Plan** in the UI) carries
+The replay ticket carries
 `tool_plan` (per-tool action) and `mock_results` (the last recorded
 successful result for every mocked tool — record/replay mocking for free).
 The server computes the plan; your resume handler enforces it, and
@@ -64,8 +64,7 @@ afr fork <run_id> --from <checkpoint_id> --name "what-if"
 
 or `POST /runs/{run_id}/fork {"checkpoint_id": ...}`. The fork is a new run
 seeded with the checkpoint's state; lineage is recorded both ways and shown
-in the UI (parent banner ⑂, fork list, fork buttons in the checkpoint
-browser).
+in legacy console views when those are explicitly used.
 
 ## Redaction
 
@@ -90,8 +89,8 @@ def scrub(payload: dict) -> dict: ...
 afr.redaction.enable_default_redaction()   # optional client-side defaults
 ```
 
-Redacted values are stored as the literal `"[REDACTED]"`; the UI renders them
-as an explicit ⛨ chip.
+Redacted values are stored as the literal `"[REDACTED]"`; renderers should
+display them as explicit redacted values.
 
 ## Tags & notes
 

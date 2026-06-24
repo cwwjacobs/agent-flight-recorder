@@ -7,6 +7,8 @@
     afr events <run_id> [--type T]    print a run's timeline
     afr replay <run_id> --from <ckpt> [--mode M] [--handler module:fn]
     afr export <run_id> [-o FILE]     export a portable JSON bundle
+    afr regression-case <run_id> --from <ckpt> -o <dir>
+                                      template a regression case from a checkpoint
 
 Run and checkpoint ids accept unique prefixes (first 8 chars are plenty).
 """
@@ -14,8 +16,10 @@ Run and checkpoint ids accept unique prefixes (first 8 chars are plenty).
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -95,6 +99,59 @@ def table(headers: list[str], rows: list[list[str]]) -> None:
 def trunc(value: Any, n: int = 60) -> str:
     text = json.dumps(value, default=str) if not isinstance(value, str) else value
     return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def replay_env_enabled() -> bool:
+    return os.environ.get("AFR_REPLAY_ENABLED", "").strip().lower() in (
+        "true",
+        "1",
+        "yes",
+        "on",
+    )
+
+
+def safe_py_identifier(value: str) -> str:
+    name = re.sub(r"\W+", "_", value).strip("_").lower()
+    return name or "run"
+
+
+def count_events_by_type(events: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for event in events:
+        event_type = str(event.get("event_type") or "unknown")
+        counts[event_type] = counts.get(event_type, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def summarize_replay_ticket(ticket: dict[str, Any] | None, attempted: bool) -> dict[str, Any]:
+    if not attempted:
+        return {
+            "attempted": False,
+            "generated": False,
+            "reason": "AFR_REPLAY_ENABLED is not true; dry-run replay ticket was not requested.",
+        }
+    if not isinstance(ticket, dict):
+        return {
+            "attempted": True,
+            "generated": False,
+            "reason": "Replay request returned a non-object response.",
+        }
+    status = ticket.get("status")
+    return {
+        "attempted": True,
+        "generated": status == "ready",
+        "run_id": ticket.get("run_id"),
+        "checkpoint_id": ticket.get("checkpoint_id"),
+        "label": ticket.get("label"),
+        "mode": ticket.get("mode"),
+        "status": status,
+        "replay_event_id": ticket.get("replay_event_id"),
+        "message": ticket.get("message"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +401,205 @@ def cmd_export(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_regression_case(args: argparse.Namespace) -> None:
+    output_dir = Path(args.output)
+    with make_client(args) as client:
+        run_id = resolve_run_id(client, args.run_id)
+        checkpoint_id = resolve_checkpoint_id(client, run_id, args.from_checkpoint)
+        bundle = client.export_bundle(run_id)
+        state_doc = client.state_at(run_id, checkpoint_id, reconstruct=True)
+
+        replay_attempted = replay_env_enabled()
+        replay_ticket = (
+            client.replay(run_id, checkpoint_id, mode="dry_run") if replay_attempted else None
+        )
+
+    run = bundle["run"]
+    events = bundle["events"]
+    checkpoints = bundle["checkpoints"]
+    checkpoint = next((c for c in checkpoints if c["id"] == checkpoint_id), None)
+    run_prefix = short(run_id)
+    checkpoint_prefix = short(checkpoint_id)
+    case = {
+        "format": "afr.regression_case.v1",
+        "generated_at": utc_now(),
+        "run": {
+            "id": run.get("id"),
+            "prefix": run_prefix,
+            "name": run.get("name"),
+            "status": run.get("status"),
+            "created_at": run.get("created_at"),
+            "ended_at": run.get("ended_at"),
+            "metadata": run.get("metadata") or {},
+        },
+        "checkpoint": {
+            "id": checkpoint_id,
+            "prefix": checkpoint_prefix,
+            "label": (checkpoint or state_doc.get("checkpoint") or {}).get("label"),
+            "event_seq": (checkpoint or state_doc.get("checkpoint") or {}).get("event_seq"),
+            "created_at": (checkpoint or state_doc.get("checkpoint") or {}).get("created_at"),
+        },
+        "expected_reconstructed_state": {
+            "available": "state" in state_doc,
+            "state": state_doc.get("state"),
+            "source": "state_at(reconstruct=True)",
+        },
+        "event_counts": {
+            "total": len(events),
+            "by_type": count_events_by_type(events),
+            "checkpoints": len(checkpoints),
+        },
+        "source_export_summary": {
+            "format": bundle.get("format"),
+            "run_id": run.get("id"),
+            "run_status": run.get("status"),
+            "events": len(events),
+            "checkpoints": len(checkpoints),
+        },
+        "replay_ticket_reference": summarize_replay_ticket(
+            replay_ticket, attempted=replay_attempted
+        ),
+        "commands_used": [
+            f"afr export {run_prefix} -o <export.json>",
+            f"afr regression-case {run_prefix} --from {checkpoint_prefix} -o {output_dir}",
+        ],
+    }
+    if replay_attempted:
+        case["commands_used"].append(
+            f"AFR_REPLAY_ENABLED=true afr --json replay {run_prefix} --from {checkpoint_prefix} --mode dry_run"
+        )
+    else:
+        case["commands_used"].append(
+            f"AFR_REPLAY_ENABLED=true afr --json replay {run_prefix} --from {checkpoint_prefix} --mode dry_run  # optional ticket reference"
+        )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    case_path = output_dir / "case.json"
+    test_path = output_dir / f"test_regression_{safe_py_identifier(run_prefix)}.py"
+    readme_path = output_dir / "README.md"
+
+    case_path.write_text(json.dumps(case, indent=2, default=str) + "\n")
+    test_path.write_text(_regression_case_test_template(run_prefix))
+    readme_path.write_text(_regression_case_readme(case))
+
+    summary = {
+        "case_dir": str(output_dir),
+        "case_json": str(case_path),
+        "test_template": str(test_path),
+        "readme": str(readme_path),
+        "run_id": run_id,
+        "checkpoint_id": checkpoint_id,
+        "replay_ticket_generated": case["replay_ticket_reference"].get("generated", False),
+    }
+    if args.json:
+        emit_json(summary)
+        return
+    print(f"wrote regression case template to {output_dir}")
+    print(f"  case      : {case_path}")
+    print(f"  pytest    : {test_path}")
+    print(f"  readme    : {readme_path}")
+    ref = case["replay_ticket_reference"]
+    if summary["replay_ticket_generated"]:
+        print(f"  replay    : {ref.get('status')} ticket {short(ref.get('replay_event_id'))}")
+    elif ref.get("attempted"):
+        print(f"  replay    : {ref.get('status') or 'not ready'} ticket not generated")
+    else:
+        print("  replay    : skipped (set AFR_REPLAY_ENABLED=true to request a dry-run ticket)")
+
+
+def _regression_case_test_template(run_prefix: str) -> str:
+    test_name = safe_py_identifier(run_prefix)
+    return f'''"""AFR regression-case template.
+
+This file is generated scaffolding. It does not execute your agent until you
+replace the TODO section with your own resume or agent entrypoint.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+
+CASE_PATH = Path(__file__).with_name("case.json")
+
+
+def load_case() -> dict:
+    return json.loads(CASE_PATH.read_text())
+
+
+def test_regression_{test_name}_case_shape() -> None:
+    case = load_case()
+    assert case["format"] == "afr.regression_case.v1"
+    assert case["run"]["id"]
+    assert case["checkpoint"]["id"]
+    assert "state" in case["expected_reconstructed_state"]
+
+
+def test_regression_{test_name}_user_resume_hook() -> None:
+    case = load_case()
+    expected_state = case["expected_reconstructed_state"]["state"]
+
+    pytest.skip(
+        "TODO: import your agent/resume function, start it from expected_state, "
+        "and assert the behavior you want this regression case to protect."
+    )
+
+    # Example shape after wiring your code:
+    # from my_agent import resume_from_state
+    # result = resume_from_state(expected_state)
+    # assert result == <your expected outcome>
+'''
+
+
+def _regression_case_readme(case: dict[str, Any]) -> str:
+    run = case["run"]
+    checkpoint = case["checkpoint"]
+    replay_ref = case["replay_ticket_reference"]
+    replay_note = (
+        f"A dry-run replay ticket was requested and returned status `{replay_ref.get('status')}`."
+        if replay_ref.get("attempted")
+        else "Replay was not requested because `AFR_REPLAY_ENABLED` was not true in the CLI environment."
+    )
+    return f"""# AFR Regression Case Template
+
+Run: `{run['id']}` (`{run.get('name')}`)
+
+Checkpoint: `{checkpoint['id']}` (`{checkpoint.get('label') or 'unlabeled'}`)
+
+## Commands Used
+
+```bash
+{chr(10).join(case['commands_used'])}
+```
+
+## What This Case Verifies
+
+- The source run can be exported as an AFR JSON bundle.
+- The checkpoint can be resolved from the run.
+- AFR can reconstruct the expected checkpoint state from recorded events and snapshots.
+- Event and checkpoint counts are captured for later drift checks.
+
+## What Remains User-Supplied
+
+- Importing your agent or resume function.
+- Starting that function from the expected reconstructed state in `case.json`.
+- Asserting the domain-specific behavior that should not regress.
+
+The generated pytest file intentionally skips the resume test until you replace
+the TODO with your own hook. It does not claim to execute your agent.
+
+## Replay And Export Notes
+
+{replay_note}
+
+Replay is opt-in and ticket-based. The backend prepares a ticket; it does not
+execute user code. This case uses JSON export data only and does not claim JSONL export support.
+"""
+
+
 def run_doctor(client: AFRClient, api_url: str, url_source: str, read_only: bool) -> bool:
     """All doctor checks against an already-built client. Returns overall ok."""
     ok = True
@@ -511,6 +767,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("run_id")
     p_export.add_argument("-o", "--output", help="output file path")
     p_export.set_defaults(func=cmd_export)
+
+    p_regression = sub.add_parser(
+        "regression-case",
+        help="template a pytest regression case from a checkpoint",
+    )
+    p_regression.add_argument("run_id")
+    p_regression.add_argument(
+        "--from", dest="from_checkpoint", required=True, metavar="CHECKPOINT"
+    )
+    p_regression.add_argument(
+        "-o", "--output", required=True, help="output directory for generated files"
+    )
+    p_regression.set_defaults(func=cmd_regression_case)
 
     return parser
 

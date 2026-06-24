@@ -1,10 +1,10 @@
 # Docker
 
-One image: FastAPI backend + the built web UI, SQLite on a named volume.
+The current Dockerfile is a legacy packaging path that builds the FastAPI backend plus the preserved legacy UI. AFR v0.2 itself is CLI-first; Docker is not required for recording, inspecting, exporting, replay-ticket generation, or regression-case generation.
 
 ```bash
 docker compose up --build
-# → http://localhost:8700  (UI + API + /docs)
+# → http://localhost:8700  (API + /docs; any served UI is legacy)
 make demo-docker            # seed the demo incident against it
 ```
 
@@ -21,8 +21,7 @@ auth. To expose it beyond the machine, do both, deliberately:
 2. change the ports line to `"8700:8700"` (or front it with your own proxy/TLS).
 
 Clients then send `Authorization: Bearer <token>` — the SDK/CLI read
-`AFR_API_TOKEN` from the environment automatically, and the web UI prompts
-for the token and stores it in localStorage.
+`AFR_API_TOKEN` from the environment automatically.
 
 ## Configuration
 
@@ -35,7 +34,7 @@ for the token and stores it in localStorage.
 | `AFR_CORS_ORIGINS` | local dev origins | comma-separated allowed origins |
 | `AFR_DEMO_SEED_ENABLED` | `true` | `false` disables `POST /demo/seed` |
 | `AFR_DB_PATH` | `/data/afr.db` | SQLite location |
-| `AFR_UI_DIST` | `/app/ui-dist` | built UI directory |
+| `AFR_UI_DIST` | `/app/ui-dist` | legacy built UI directory |
 
 Enable the premium placeholder explicitly:
 `AFR_PREMIUM_ENABLED=true docker compose up`.

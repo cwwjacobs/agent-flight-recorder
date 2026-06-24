@@ -26,7 +26,7 @@ AFR keeps a local record of the run boundary:
 - checkpoint inspection
 - replay tickets and replay plans
 - side-effect-aware replay helpers
-- CLI and optional web UI inspection paths
+- CLI inspection, markdown reports, and JSON export paths
 - SQLite-first local storage
 - best-effort redaction at ingest
 
@@ -53,23 +53,20 @@ AFR is not a guarantee that every state change was captured. State reconstructio
 
 ## Quickstart
 
-Docker builds the web UI, serves it alongside the API on `http://127.0.0.1:8700`, and stores data in a local Docker volume:
-
-```bash
-docker compose up --build     # backend + UI on http://127.0.0.1:8700
-make demo-docker              # seed the checkout-agent-payment-timeout demo incident
-open http://127.0.0.1:8700
-```
-
-Without Docker (the backend, SDK, and CLI work on their own; the UI is optional):
+AFR v0.2 is CLI-first, local-first, and text-first. The core path uses the backend, SDK, and CLI without any frontend framework dependency:
 
 ```bash
 make install
 make serve                    # API on http://127.0.0.1:8700
-make build-ui                 # optional: build the UI so the backend serves ui/dist
 make demo
 afr doctor
+afr runs list
+afr events <run_id>
+afr export <run_id> -o incident.json
+afr regression-case <run_id> --from <checkpoint_id> -o cases/incident
 ```
+
+Docker remains available for local server packaging, but it is not the source of truth for the v0.2 operator surface. The legacy React/Vite UI tree is preserved for evidence and review only; it is not part of AFR v0.2 and is not required for recording, inspecting, exporting, replay-ticket generation, or regression-case generation.
 
 Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
 
@@ -115,6 +112,20 @@ afr.replay(run_id, checkpoint_id, mode="mock_tools")
 
 The server reconstructs recorded state and prepares a replay ticket. It does not execute user code. The resume handler enforces the plan when it uses the SDK helpers, including mock, skip, block, and allow decisions for tool calls.
 
+## Regression-case templating
+
+```bash
+afr regression-case <run_id> --from <checkpoint_id> -o cases/<name>
+```
+
+This writes `case.json`, `test_regression_<run_prefix>.py`, and `README.md`.
+The case captures exported run metadata, event counts, reconstructed checkpoint
+state, and an optional dry-run replay-ticket reference when
+`AFR_REPLAY_ENABLED=true`. The pytest file is intentionally a template: you
+provide the agent or resume function and the domain-specific assertions. AFR
+does not claim JSONL export support or automatic replay execution for this
+flow.
+
 ## Integrations
 
 | Stack | AFR attachment path |
@@ -132,6 +143,7 @@ See:
 - [docs/replay.md](docs/replay.md)
 - [docs/data-model.md](docs/data-model.md)
 - [docs/integrations.md](docs/integrations.md)
+- [docs/frontend-boundary.md](docs/frontend-boundary.md)
 - [docs/roadmap.md](docs/roadmap.md)
 - [docs/mcp.md](docs/mcp.md)
 
@@ -152,7 +164,7 @@ AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can
 backend/   FastAPI app: API, replay engine, storage, schemas
 sdk/       Python SDK: client, context, hooks, wrappers, integrations
 cli/       afr CLI
-ui/        React/Vite operator console source
+ui/        Legacy React/Vite console source; not part of AFR v0.2 core
 examples/  runnable offline demo agents
 scripts/   demo and smoke helpers
 docs/      quickstart, SDK, CLI, API, replay, data model, integrations

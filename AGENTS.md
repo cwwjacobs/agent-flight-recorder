@@ -14,7 +14,6 @@ AFR does not claim to recover private model reasoning, hidden chain-of-thought, 
 make install      # create venv and install backend, sdk, cli, and test deps
 make test         # run backend/tests via pytest
 make serve        # run backend API on http://127.0.0.1:8700
-make build-ui     # build UI assets
 make smoke        # smoke test against running backend
 make demo         # record toy agent run via SDK
 make demo-docker  # seed demo incident over HTTP
@@ -66,3 +65,15 @@ Verification:
 Risks / notes:
 -
 ```
+
+## Frontend Boundary
+
+This project does not use React, Vite, Next, Vue, Svelte, or npm-based application frameworks for core functionality.
+
+AFR is CLI-first and local-first. User-facing surfaces may be CLI commands, terminal TUI, markdown reports, JSON / JSONL exports, or plain static HTML generated from trusted local data.
+
+No frontend dependency graph may become required for core AFR functionality.
+
+The legacy UI path is not part of AFR v0.2. AFR v0.2 is the CLI Visibility Cut.
+
+Legacy UI work must be explicitly requested. Do not use `make build-ui`, npm, or frontend framework tooling for core AFR changes.

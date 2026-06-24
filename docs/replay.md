@@ -74,4 +74,4 @@ Wording matters here, so to be exact:
 - the **SDK** provides `ReplayContext` helpers (`call_tool`, `action_for`, `should_execute`, `mock_result`) that make honoring the plan one line.
 - your **resume handler** is where execution happens. Use the helpers; a handler that ignores the plan and calls tools directly gets no protection from AFR.
 
-The UI labels the ticket a **Replay Plan**. Same JSON document, friendlier name.
+Legacy console views may label the ticket a **Replay Plan**. Same JSON document, friendlier name.
