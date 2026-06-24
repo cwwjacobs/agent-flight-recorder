@@ -1,10 +1,8 @@
-"""Agent Flight Recorder — FastAPI application.
+"""Agent Flight Recorder FastAPI application.
 
-Routes are mounted twice: at the root (the canonical API documented in
-docs/api.md) and under /api (schema-hidden copy used by the web UI and the
-Vite dev proxy). If a built UI exists (ui/dist or $AFR_UI_DIST), it is served
-as static files from "/" — the UI uses hash routing, so no SPA fallback
-gymnastics are needed.
+The canonical API is mounted at the root and mirrored under /api for adapter
+compatibility. If AFR_UI_DIST points to a built static bundle, it can still be
+served from "/", but the default runtime is backend/CLI-first.
 """
 
 from __future__ import annotations
@@ -20,7 +18,7 @@ from app.api import build_router
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Agent Flight Recorder",
-        description="AI agent observability, replay debugging, and checkpoint inspection for LLM apps",
+        description="Local-first run recorder, replay-ticket helper, and regression-case source for tool-using agents",
         version=__version__,
     )
 
@@ -41,7 +39,7 @@ def create_app() -> FastAPI:
 
     ui_dist = config.ui_dist_path()
     if ui_dist is not None:
-        app.mount("/", StaticFiles(directory=str(ui_dist), html=True), name="ui")
+        app.mount("/", StaticFiles(directory=str(ui_dist), html=True), name="static")
 
     return app
 

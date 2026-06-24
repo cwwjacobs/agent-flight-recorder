@@ -29,7 +29,6 @@ AFR keeps a local record of the run boundary:
 - replay tickets and replay plans
 - side-effect-aware replay helpers
 - CLI-first inspection and export paths
-- optional web UI inspection path
 - SQLite-first local storage
 - best-effort redaction at ingest
 
@@ -57,15 +56,15 @@ AFR is not a guarantee that every state change was captured. State reconstructio
 
 ## Quickstart
 
-Docker builds the web UI, serves it alongside the API on `http://127.0.0.1:8700`, and stores data in a local Docker volume:
+Docker starts the backend API on `http://127.0.0.1:8700` and stores data in a local Docker volume:
 
 ```bash
-docker compose up --build     # backend + UI on http://127.0.0.1:8700
+docker compose up --build     # backend API on http://127.0.0.1:8700
 make demo-docker              # seed the checkout-agent-payment-timeout demo incident
-open http://127.0.0.1:8700
+afr runs list
 ```
 
-Without Docker, the backend, SDK, and CLI work on their own. The UI is optional:
+Without Docker:
 
 ```bash
 make install
@@ -138,6 +137,7 @@ The server reconstructs recorded state and prepares a replay ticket. It does not
 | Plain Python | decorators + `with afr.start_run(...)` |
 | LangChain / LangGraph | callback handler |
 | Custom framework | HTTP API or SDK calls |
+| Codex | `Codex-AFR/` wrapper and harness |
 
 See:
 
@@ -158,7 +158,7 @@ AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can
 
 - The backend binds to `127.0.0.1` by default for local runs.
 - Docker publishes the service to `127.0.0.1:8700` on the host by default.
-- CORS is restricted to local dev origins by default.
+- CORS is restricted to local AFR origins by default.
 - Set `AFR_API_TOKEN=<token>` before exposing AFR outside loopback.
 - Redaction runs at ingest and is best-effort, not a guarantee.
 - Treat the SQLite database as sensitive at rest.
@@ -169,7 +169,7 @@ AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can
 backend/   FastAPI app: API, replay engine, storage, schemas
 sdk/       Python SDK: client, context, hooks, wrappers, integrations
 cli/       afr CLI
-ui/        optional React/Vite operator console source
+Codex-AFR/ Codex wrapper, hook bridge, package helpers, and smoke test
 examples/  runnable offline demo agents
 scripts/   demo and smoke helpers
 docs/      quickstart, SDK, CLI, API, replay, data model, integrations, evals

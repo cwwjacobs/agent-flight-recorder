@@ -31,12 +31,15 @@ def demo_seed_enabled() -> bool:
 
 
 def ui_dist_path() -> Path | None:
-    """Directory with the built UI, if present. Served as static files."""
+    """Optional static bundle directory.
+
+    AFR does not build or require a UI by default. Set AFR_UI_DIST only when a
+    prebuilt static bundle should be served from the backend.
+    """
     env = os.environ.get("AFR_UI_DIST")
     if env:
         p = Path(env)
         return p if p.is_dir() else None
-    # repo layout default: backend/app/config.py -> ../../ui/dist
     p = Path(__file__).resolve().parent.parent.parent / "ui" / "dist"
     return p if p.is_dir() else None
 
@@ -44,18 +47,15 @@ def ui_dist_path() -> Path | None:
 # ---------------------------------------------------------------------------
 # security / networking
 
-# Safe CORS default: the local dev UI origins only — never "*" by default, so a
-# random website you have open can't read your recorded runs cross-origin.
+# Safe CORS default: local AFR origins only, never "*" by default.
 DEFAULT_DEV_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
     "http://localhost:8700",
     "http://127.0.0.1:8700",
 ]
 
 
 def cors_origins() -> list[str]:
-    """Allowed CORS origins. Default = local dev UI only.
+    """Allowed CORS origins.
 
     Set AFR_CORS_ORIGINS to a comma-separated list, or to "*" to explicitly
     (and knowingly) allow any origin. Empty/unset falls back to the safe default.
