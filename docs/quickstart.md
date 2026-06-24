@@ -3,12 +3,12 @@
 The fastest path is Docker + the seeded demo:
 
 ```bash
-docker compose up --build      # backend + UI on http://127.0.0.1:8700
+docker compose up --build      # backend API on http://127.0.0.1:8700
 make demo-docker               # seed checkout-agent-payment-timeout
-open http://127.0.0.1:8700
+afr runs list
 ```
 
-The Docker image builds the web UI and serves it from the FastAPI backend. Data is stored in a local Docker volume.
+The Docker image is backend-only by default. Data is stored in a local Docker volume.
 
 Everything below is the no-Docker path.
 
@@ -48,24 +48,13 @@ Something not working?
 
 ## 4. Inspect
 
-CLI:
-
 ```bash
 .venv/bin/afr runs list
 .venv/bin/afr runs show <run_id>      # ids accept unique prefixes (8 chars)
 .venv/bin/afr events <run_id>
-```
-
-Web UI (dev mode, hot reload):
-
-```bash
-cd ui && npm install && npm run dev    # http://127.0.0.1:5173 (proxies /api to :8700)
-```
-
-Web UI (production, served by the backend):
-
-```bash
-cd ui && npm install && npm run build  # backend now serves it at http://127.0.0.1:8700
+.venv/bin/afr events <run_id> --errors-only
+.venv/bin/afr export <run_id> -o incident.json
+.venv/bin/afr-regression-case <run_id> --from <checkpoint_id> -o cases/incident-42
 ```
 
 ## 5. Replay from a checkpoint
