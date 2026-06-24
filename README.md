@@ -10,9 +10,11 @@ Agent Flight Recorder (AFR) records the observable boundary of an agent run: mod
 AFR does not expose a model's private reasoning, hidden chain-of-thought, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
 
 ```text
-1. Record   - capture model calls, tool calls, state snapshots, checkpoints, and errors
-2. Inspect  - review the recorded event timeline and recorded state around a failure
-3. Replay   - prepare a replay ticket using mocked or gated tool execution
+1. Record           - capture model calls, tool calls, state snapshots, checkpoints, and errors
+2. Inspect          - review the recorded event timeline and recorded state around a failure
+3. Export           - preserve a portable JSON run bundle
+4. Regression case  - turn a checkpoint into a pytest fixture for the repair
+5. Eval seed        - promote recurring failure shapes into eval records
 ```
 
 ## Why AFR exists
@@ -26,7 +28,8 @@ AFR keeps a local record of the run boundary:
 - checkpoint inspection
 - replay tickets and replay plans
 - side-effect-aware replay helpers
-- CLI and optional web UI inspection paths
+- CLI-first inspection and export paths
+- optional web UI inspection path
 - SQLite-first local storage
 - best-effort redaction at ingest
 
@@ -40,6 +43,7 @@ AFR is intended for local development, debugging, evaluation, and audit workflow
 - What state was recorded before the failure?
 - Which checkpoint can be used to prepare a replay request?
 - Which side-effecting tools should be mocked, skipped, blocked, or explicitly allowed?
+- Which failure should become a regression case or eval seed?
 
 The replay boundary is explicit. The backend reconstructs recorded state and prepares a replay ticket. It does not execute user code. A user-provided resume handler owns replay execution and should use the SDK helpers to honor mock, skip, block, and allow decisions.
 
@@ -61,14 +65,14 @@ make demo-docker              # seed the checkout-agent-payment-timeout demo inc
 open http://127.0.0.1:8700
 ```
 
-Without Docker (the backend, SDK, and CLI work on their own; the UI is optional):
+Without Docker, the backend, SDK, and CLI work on their own. The UI is optional:
 
 ```bash
 make install
 make serve                    # API on http://127.0.0.1:8700
-make build-ui                 # optional: build the UI so the backend serves ui/dist
 make demo
 afr doctor
+afr runs list
 ```
 
 Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
@@ -78,6 +82,18 @@ export AFR_REPLAY_ENABLED=true
 # Docker: pass the same variable into compose
 AFR_REPLAY_ENABLED=true docker compose up --build
 ```
+
+## CLI-first spine
+
+```bash
+afr runs list --status failed
+afr runs show 648c2cd9
+afr events 648c2cd9 --errors-only
+afr export 648c2cd9 -o incident-42.json
+afr-regression-case 648c2cd9 --from dfd2082b -o cases/payment-timeout
+```
+
+The generated regression case contains `case.json`, a pytest template, and a README. It is safe by default: it gives you a fixture for asserting the repaired behavior, not a mechanism for surprise side effects.
 
 ## Record your agent
 
@@ -132,6 +148,7 @@ See:
 - [docs/replay.md](docs/replay.md)
 - [docs/data-model.md](docs/data-model.md)
 - [docs/integrations.md](docs/integrations.md)
+- [docs/evals.md](docs/evals.md)
 - [docs/roadmap.md](docs/roadmap.md)
 - [docs/mcp.md](docs/mcp.md)
 
@@ -152,10 +169,11 @@ AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can
 backend/   FastAPI app: API, replay engine, storage, schemas
 sdk/       Python SDK: client, context, hooks, wrappers, integrations
 cli/       afr CLI
-ui/        React/Vite operator console source
+ui/        optional React/Vite operator console source
 examples/  runnable offline demo agents
 scripts/   demo and smoke helpers
-docs/      quickstart, SDK, CLI, API, replay, data model, integrations
+docs/      quickstart, SDK, CLI, API, replay, data model, integrations, evals
+evals/     small public eval seed records for AFR behavior
 ```
 
 ## Tests
@@ -175,6 +193,7 @@ Current focus areas:
 - expanding adapter coverage beyond the current Python and LangChain / LangGraph paths
 - improving diff and checkpoint inspection flows
 - preserving local-first privacy while making agent failures easier to reproduce safely
+- turning repaired failure shapes into regression cases and eval seeds
 
 See:
 
