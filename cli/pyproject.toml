@@ -9,6 +9,7 @@ dependencies = [
 
 [project.scripts]
 afr = "afr_cli.main:main"
+afr-regression-case = "afr_cli.regression_case:main"
 
 [build-system]
 requires = ["setuptools>=68"]
