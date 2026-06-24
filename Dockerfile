@@ -1,26 +1,15 @@
 # syntax=docker/dockerfile:1
 
-# --- UI build stage: produce ui/dist -------------------------------------
-FROM node:22-alpine AS ui
-WORKDIR /ui
-COPY ui/package.json ui/package-lock.json ./
-RUN npm install
-COPY ui/ ./
-RUN npm run build
-
-# --- backend stage: FastAPI + the built UI -------------------------------
 FROM python:3.12.13-slim
 WORKDIR /app
+
 COPY backend/pyproject.toml backend/pyproject.toml
 COPY backend/requirements.txt backend/requirements.txt
 COPY backend/app backend/app
+
 RUN pip install --no-cache-dir --constraint backend/requirements.txt ./backend
 
-# Serve the built UI from "/". app.main mounts AFR_UI_DIST as static files.
-COPY --from=ui /ui/dist /app/ui-dist
-
-ENV AFR_DB_PATH=/data/afr.db \
-    AFR_UI_DIST=/app/ui-dist
+ENV AFR_DB_PATH=/data/afr.db
 VOLUME /data
 EXPOSE 8700
 
