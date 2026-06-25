@@ -1,6 +1,6 @@
 # Open Source Freeze
 
-This repository state was relicensed under the MIT License with Terminus Protocol attribution and frozen for OpenAI Codex for Open Source submission.
+This repository state is licensed under Apache-2.0 with Terminus Protocol attribution.
 
 Freeze commit: 050dc22e8c7acfb95cc3a5bef1e7afc64e975715
 
