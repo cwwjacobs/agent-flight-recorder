@@ -1,7 +1,7 @@
 # Agent Flight Recorder
 
 [![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 **Local-first recorder for observable tool-using agent runs.**
 
@@ -19,7 +19,7 @@ From those recorded events, AFR can export portable run bundles and generate reg
 
 When an agent fails, AFR preserves what the agent received, what the model returned, what tools were requested, what those tools returned, what state was recorded, where checkpoints were created, and what errors ended the run.
 
-AFR does not expose a model's private reasoning, hidden chain-of-thought, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
+AFR does not expose a model's unrecorded internals, private reasoning traces, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
 
 ```text
 1. Record           - capture model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests
@@ -63,7 +63,7 @@ The replay boundary is explicit. The backend reconstructs recorded state and pre
 
 ## What AFR does not claim
 
-AFR is not a model interpretability system. It does not recover true model intent, private reasoning, hidden chain-of-thought, neural activations, or training traces.
+AFR is not a model interpretability system. It does not recover true model intent, private reasoning traces, neural activations, or training traces.
 
 AFR is not an enterprise security product or sandbox by itself. Recorded prompts, tool payloads, and state snapshots can contain sensitive data. Redaction is best-effort, not a guarantee.
 
@@ -200,7 +200,7 @@ make smoke
 
 ## Project status
 
-AFR is a public OSS baseline maintained by Corey Jacobs / cwwjacobs. The project is MIT licensed with Terminus Protocol copyright and notice metadata preserved in the repository.
+AFR is a public OSS baseline maintained by Corey Jacobs / cwwjacobs. The project is Apache-2.0 licensed with Terminus Protocol copyright and notice metadata preserved in the repository.
 
 Current focus areas:
 
@@ -218,6 +218,6 @@ See:
 
 ## License
 
-Agent Flight Recorder is released under the [MIT License](LICENSE).
+Agent Flight Recorder is released under the [Apache License 2.0](LICENSE).
 
 Copyright (c) 2026 Terminus Protocol.
