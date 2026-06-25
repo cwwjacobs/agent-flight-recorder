@@ -47,7 +47,7 @@ Evidence:
 
 Boundary: This does not make AFR an enterprise security product, a sandbox, or a hosted observability platform.
 
-Public wording: "Local-first run recorder for tool-using AI agents."
+Public wording: "Local-first recorder for observable tool-using agent runs."
 
 ### AFR-C-002: observable boundary capture
 
@@ -66,7 +66,7 @@ Evidence:
 
 Boundary: AFR does not expose hidden model reasoning, true model intent, neural activations, or unrecorded process state.
 
-Public wording: "AFR records the observable boundary of an agent run."
+Public wording: "AFR records model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests when those events are recorded through the SDK, API, CLI, or adapter path in use."
 
 ### AFR-C-003: append-only recorded event timeline
 
