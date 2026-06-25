@@ -3,14 +3,26 @@
 [![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Local-first run recorder for tool-using AI agents.**
+**Local-first recorder for observable tool-using agent runs.**
 
-Agent Flight Recorder (AFR) records the observable boundary of an agent run: model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests.
+Agent Flight Recorder (AFR) records the operational evidence of an agent run:
+
+- model calls
+- tool calls
+- tool results
+- state snapshots
+- checkpoints
+- errors
+- replay requests
+
+From those recorded events, AFR can export portable run bundles and generate regression-case material.
+
+When an agent fails, AFR preserves what the agent received, what the model returned, what tools were requested, what those tools returned, what state was recorded, where checkpoints were created, and what errors ended the run.
 
 AFR does not expose a model's private reasoning, hidden chain-of-thought, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
 
 ```text
-1. Record           - capture model calls, tool calls, state snapshots, checkpoints, and errors
+1. Record           - capture model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests
 2. Inspect          - review the recorded event timeline and recorded state around a failure
 3. Export           - preserve a portable JSON run bundle
 4. Regression case  - turn a checkpoint into a pytest fixture for the repair
@@ -19,11 +31,13 @@ AFR does not expose a model's private reasoning, hidden chain-of-thought, neural
 
 ## Why AFR exists
 
-Tool-using agents can fail after prompts, tool calls, state updates, or external side effects have already happened. By the time the failure is noticed, the exact run context may be scattered across logs or gone.
+Tool-using agents can fail after prompts, tool calls, state updates, or external side effects have already happened. By the time the failure is noticed, the run context may be scattered across logs or gone.
 
-AFR keeps a local record of the run boundary:
+AFR keeps a local record of the run evidence:
 
 - append-only recorded event timelines
+- model calls and model responses
+- tool calls and tool results
 - recorded state snapshots and checkpoint metadata
 - checkpoint inspection
 - replay tickets and replay plans
@@ -39,6 +53,7 @@ AFR is intended for local development, debugging, evaluation, and audit workflow
 - What did the agent receive?
 - What did the model return?
 - What tools were requested or executed?
+- What did those tools return?
 - What state was recorded before the failure?
 - Which checkpoint can be used to prepare a replay request?
 - Which side-effecting tools should be mocked, skipped, blocked, or explicitly allowed?
