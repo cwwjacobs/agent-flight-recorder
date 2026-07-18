@@ -21,7 +21,7 @@ PUBLIC_DOCS = [
 
 REQUIRED_SUBSTRINGS = {
     ROOT / "README.md": [
-        "observable boundary",
+        "observable tool-using agent runs",
         "does not expose",
         "Replay is deliberately disabled by default",
         "It does not execute user code",
