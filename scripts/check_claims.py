@@ -95,7 +95,12 @@ RISKY_REGEXES = [
 STRUCTURAL_CHECKS = [
     (
         ROOT / "Dockerfile",
-        ["AFR_UI_DIST=/app/ui-dist", "0.0.0.0", "COPY --from=ui /ui/dist /app/ui-dist"],
+        [
+            "FROM python:3.12.13-slim",
+            "AFR_DB_PATH=/data/afr.db",
+            "VOLUME /data",
+            '"--host", "0.0.0.0"',
+        ],
     ),
     (
         ROOT / "docker-compose.yml",
