@@ -122,11 +122,11 @@ Public wording: "prepare a replay ticket using mocked or gated tool execution" o
 
 Avoid: "safe replay" or "safely replay" without nearby boundary language.
 
-### AFR-C-006: Docker backend plus UI path
+### AFR-C-006: backend-only Docker path
 
-Claim: Docker can serve the backend and built UI on `http://127.0.0.1:8700`.
+Claim: Docker can run the AFR backend API on `http://127.0.0.1:8700` with persistent local SQLite storage.
 
-Scope: The Docker image builds the UI, copies `ui/dist`, sets `AFR_UI_DIST`, and binds uvicorn to `0.0.0.0` inside the container while compose publishes host loopback only.
+Scope: The Docker image installs the backend only, stores the database under `/data`, binds uvicorn to `0.0.0.0` inside the container, and compose publishes port 8700 to host loopback only.
 
 Evidence:
 
@@ -134,9 +134,9 @@ Evidence:
 - `docker-compose.yml`
 - `backend/app/main.py`
 
-Boundary: This says the container path is wired correctly. It does not replace actual Docker smoke validation.
+Boundary: The legacy UI build is intentionally quarantined and is not part of the default Docker image. This wiring claim does not replace an actual Docker smoke test.
 
-Public wording: "Docker builds the web UI and serves it alongside the API on `http://127.0.0.1:8700`."
+Public wording: "Docker starts the backend API on `http://127.0.0.1:8700` and stores data in a local Docker volume."
 
 ## Red phrases
 
@@ -170,7 +170,7 @@ Before merging public copy changes, check:
 2. The claim says "recorded" when talking about timeline or state.
 3. Replay language mentions the server/client split or SDK helper boundary.
 4. Redaction language says best-effort.
-5. Docker/UI claims match the Dockerfile and compose file.
+5. Docker claims match the Dockerfile and compose file.
 6. New aspirational work is labelled roadmap, planned, or future.
 
 ## Automation
