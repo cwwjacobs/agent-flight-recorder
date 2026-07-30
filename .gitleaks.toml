@@ -1,0 +1,21 @@
+title = "Agent Flight Recorder Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic OpenAI-shaped sentinel used by the Codex packaging smoke test"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^Codex-AFR/smoke-codex-package\.sh$''']
+regexes = ['''sk-smoke-test-key-12345678901234567890''']
+
+[[allowlists]]
+description = "Synthetic JWT and Google-key fixtures used to test AFR redaction"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^backend/tests/test_redaction\.py$''']
+regexes = [
+  '''s5xYdummysig1234''',
+  '''AIzaABCDEFGHIJKLMNOPQRSTUVWXYZ123456789''',
+]
