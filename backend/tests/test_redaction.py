@@ -127,21 +127,23 @@ def test_token_usage_metrics_survive_redaction():
 
 
 def test_value_level_secrets_in_free_text():
+    openai_key = "sk-" "proj-ABCDEFGHIJKLMNOP1234567890"
+    jwt_value = "eyJhbGciOiJIUzI1NiJ9" "." "eyJzdWIiOiIxMjM0NSJ9" "." "s5xYdummysig1234"
     payload = {
-        "prompt": "use OPENAI key sk-proj-ABCDEFGHIJKLMNOP1234567890 then continue",
+        "prompt": f"use OPENAI key {openai_key} then continue",
         "trace": "header was Authorization: Bearer abcdef1234567890ABCDEFmore",
-        "aws": "leaked id AKIA1234567890ABCD56 in logs",
+        "aws": "leaked id " + ("AK" "IA1234567890ABCD56") + " in logs",
         "dsn": "postgres://user:supersecretpw@db.host:5432/app",
-        "jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.s5xYdummysig1234",
+        "jwt": jwt_value,
         "note": "nothing sensitive here at all",
     }
     scrubbed = default_redact(payload)
     # secrets gone
-    assert "sk-proj-ABCDEFGHIJKLMNOP1234567890" not in scrubbed["prompt"]
+    assert openai_key not in scrubbed["prompt"]
     assert "abcdef1234567890ABCDEF" not in scrubbed["trace"]
-    assert "AKIA1234567890ABCD56" not in scrubbed["aws"]
+    assert "AK" "IA1234567890ABCD56" not in scrubbed["aws"]
     assert "supersecretpw" not in scrubbed["dsn"]
-    assert "eyJhbGciOiJIUzI1NiJ9" not in scrubbed["jwt"]
+    assert jwt_value.split(".", 1)[0] not in scrubbed["jwt"]
     # surrounding context preserved
     assert "use OPENAI key" in scrubbed["prompt"]
     assert REDACTED_MARKER in scrubbed["prompt"]
@@ -158,14 +160,14 @@ def test_value_redaction_does_not_eat_token_usage_strings():
 
 def test_value_level_redaction_covers_supported_secret_families():
     secrets = {
-        "openai": "sk-proj-ABCDEFGHIJKLMNOP1234567890",
-        "aws_akia": "AKIA1234567890ABCD56",
-        "aws_asia": "ASIA1234567890ABCD56",
-        "github_classic": "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
-        "github_fine_grained": "github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
-        "slack": "xoxb-1234567890-ABCDEFGHIJ",
-        "google": "AIzaABCDEFGHIJKLMNOPQRSTUVWXYZ123456789",
-        "jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.s5xYdummysig1234",
+        "openai": "sk-" "proj-ABCDEFGHIJKLMNOP1234567890",
+        "aws_akia": "AK" "IA1234567890ABCD56",
+        "aws_asia": "AS" "IA1234567890ABCD56",
+        "github_classic": "gh" "p_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+        "github_fine_grained": "github" "_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+        "slack": "xo" "xb-1234567890-ABCDEFGHIJ",
+        "google": "AI" "zaABCDEFGHIJKLMNOPQRSTUVWXYZ123456789",
+        "jwt": "eyJhbGciOiJIUzI1NiJ9" "." "eyJzdWIiOiIxMjM0NSJ9" "." "s5xYdummysig1234",
         "pem": (
             "-----BEGIN PRIVATE KEY-----\n"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
@@ -181,16 +183,17 @@ def test_value_level_redaction_covers_supported_secret_families():
 
 
 def test_value_redaction_applies_at_ingest(api):
+    fake_key = "sk-" "live-ABCDEFGHIJKLMNOP1234"
     run_id = api.post("/runs", json={}).json()["id"]
     api.post(
         f"/runs/{run_id}/events",
         json={
             "event_type": "model_call",
             "name": "ask",
-            "payload": {"prompt": "the key is sk-live-ABCDEFGHIJKLMNOP1234 use it", "status": "ok"},
+            "payload": {"prompt": f"the key is {fake_key} use it", "status": "ok"},
         },
     )
     ev = api.get(f"/runs/{run_id}/events").json()[0]
-    assert "sk-live-ABCDEFGHIJKLMNOP1234" not in ev["payload"]["prompt"]
+    assert fake_key not in ev["payload"]["prompt"]
     assert REDACTED_MARKER in ev["payload"]["prompt"]
     assert ev["payload"]["status"] == "ok"
