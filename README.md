@@ -179,11 +179,27 @@ with afr.start_run("trip-planner", metadata={"env": "dev"}):
 
 ## Replay from a checkpoint
 
-Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
+Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers.
+
+**macOS or Linux:**
 
 ```bash
 export AFR_REPLAY_ENABLED=true
-AFR_REPLAY_ENABLED=true docker compose up --build
+docker compose up --build
+```
+
+**Windows PowerShell:**
+
+```powershell
+$env:AFR_REPLAY_ENABLED = "true"
+docker compose up --build
+```
+
+**Windows Command Prompt:**
+
+```batch
+set AFR_REPLAY_ENABLED=true
+docker compose up --build
 ```
 
 ```python

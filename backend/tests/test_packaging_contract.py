@@ -37,7 +37,26 @@ def test_ci_validates_ui_docker_and_portable_bundle():
     assert "actions/upload-artifact@" in workflow
 
 
-def test_cross_platform_launchers_are_present():
-    assert (ROOT / "start.sh").is_file()
-    assert (ROOT / "start.ps1").is_file()
+def test_ci_does_not_persist_checkout_credentials():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+
+    assert workflow.count("persist-credentials: false") == workflow.count(
+        "uses: actions/checkout@"
+    )
+
+
+def test_cross_platform_launchers_are_portable():
+    shell_launcher = (ROOT / "start.sh").read_text()
+    powershell_launcher = (ROOT / "start.ps1").read_text()
+
+    assert 'cd -- "$(dirname -- "$0")"' in shell_launcher
+    assert "Set-Location -LiteralPath $PSScriptRoot" in powershell_launcher
     assert (ROOT / "start.cmd").is_file()
+
+
+def test_readme_documents_replay_on_each_supported_shell():
+    readme = (ROOT / "README.md").read_text()
+
+    assert "**macOS or Linux:**" in readme
+    assert "**Windows PowerShell:**" in readme
+    assert "**Windows Command Prompt:**" in readme

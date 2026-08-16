@@ -8,6 +8,8 @@ if [ "${1:-}" = "--no-browser" ]; then
   OPEN_BROWSER=false
 fi
 
+cd -- "$(dirname -- "$0")"
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required. Install Docker Desktop, then run this script again." >&2
   exit 1

@@ -5,6 +5,8 @@ param(
 $ErrorActionPreference = "Stop"
 $url = "http://127.0.0.1:8700"
 
+Set-Location -LiteralPath $PSScriptRoot
+
 try {
     docker compose version | Out-Null
 } catch {
