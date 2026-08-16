@@ -7,27 +7,85 @@
 
 Agent Flight Recorder (AFR) records the operational evidence of an agent run:
 
-- model calls
-- tool calls
-- tool results
+- model calls and model responses
+- tool calls and tool results
 - state snapshots
 - checkpoints
 - errors
-- replay requests
+- replay requests and replay-plan events
 
-From those recorded events, AFR can export portable run bundles and generate regression-case material.
-
-When an agent fails, AFR preserves what the agent received, what the model returned, what tools were requested, what those tools returned, what state was recorded, where checkpoints were created, and what errors ended the run.
+From those recorded events, AFR can inspect a run in the browser, export a portable run bundle, and generate regression-case material.
 
 AFR does not expose a model's unrecorded internals, private reasoning traces, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
 
 ```text
-1. Record           - capture model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests
-2. Inspect          - review the recorded event timeline and recorded state around a failure
-3. Export           - preserve a portable JSON run bundle
-4. Regression case  - turn a checkpoint into a pytest fixture for the repair
-5. Eval seed        - promote recurring failure shapes into eval records
+1. Record           - capture observable execution evidence
+2. Inspect          - review the run timeline, state, checkpoints, and failures
+3. Export           - download a portable JSON run bundle
+4. Replay plan      - reconstruct recorded state and choose safe tool policies
+5. Regression case  - turn a checkpoint into a pytest fixture for the repair
 ```
+
+## Download and run
+
+The recommended path needs **Docker Desktop only**. Python and Node run inside the image.
+
+1. Download the repository ZIP or the `agent-flight-recorder-portable` CI artifact and extract it.
+2. Start AFR:
+
+   **Windows:** double-click `start.cmd`
+
+   **macOS or Linux:**
+
+   ```bash
+   sh start.sh
+   ```
+
+3. The launcher builds the complete image, waits for the health check, and opens:
+
+   ```text
+   http://127.0.0.1:8700
+   ```
+
+The image includes the web UI, FastAPI backend, Python SDK, and `afr` CLI. Data persists in the local Docker volume `afr-data`.
+
+The direct command is also one line:
+
+```bash
+docker compose up --build
+```
+
+Useful container commands:
+
+```bash
+docker compose exec afr afr doctor
+docker compose exec afr afr runs list
+docker compose exec afr afr demo
+docker compose logs -f afr
+docker compose down                 # keeps recorded data
+docker compose down -v              # deletes recorded data too
+```
+
+The empty-state screen can create a complete payment-timeout demo incident with one click.
+
+## Local contributor setup
+
+Use this path when you already have Python 3.10+ and Node installed:
+
+```bash
+make install
+make build-ui
+make run                    # UI and API on http://127.0.0.1:8700
+```
+
+Or run the layers separately:
+
+```bash
+make serve                  # serves ui/dist when it exists
+cd ui && npm run dev        # Vite dev server on http://127.0.0.1:5173
+```
+
+`make package` creates `dist/agent-flight-recorder-portable.zip` with prebuilt UI assets.
 
 ## Why AFR exists
 
@@ -42,13 +100,13 @@ AFR keeps a local record of the run evidence:
 - checkpoint inspection
 - replay tickets and replay plans
 - side-effect-aware replay helpers
-- CLI-first inspection and export paths
+- browser and CLI inspection paths
 - SQLite-first local storage
 - best-effort redaction at ingest
 
 ## What AFR does
 
-AFR is intended for local development, debugging, evaluation, and audit workflows. It helps answer practical questions:
+AFR is intended for local development, debugging, evaluation, and incident reproduction. It helps answer practical questions:
 
 - What did the agent receive?
 - What did the model return?
@@ -69,35 +127,23 @@ AFR is not an enterprise security product or sandbox by itself. Recorded prompts
 
 AFR is not a guarantee that every state change was captured. State reconstruction is limited to events and snapshots actually recorded by the SDK, CLI, API, or adapter path in use.
 
-## Quickstart
+## Browser workflow
 
-Docker starts the backend API on `http://127.0.0.1:8700` and stores data in a local Docker volume:
+The bundled UI provides:
 
-```bash
-docker compose up --build     # backend API on http://127.0.0.1:8700
-make demo-docker              # seed the checkout-agent-payment-timeout demo incident
-afr runs list
-```
+- backend health and version status
+- searchable and filterable run history
+- responsive run cards on small screens
+- keyboard-accessible run navigation
+- live refresh that can be paused
+- event timeline and payload inspection
+- checkpoint and reconstructed-state inspection
+- replay-plan preparation with explicit safety modes
+- state comparison where enabled
+- one-click local JSON bundle download
+- light, dark, and Cyber Orchid themes
 
-Without Docker:
-
-```bash
-make install
-make serve                    # API on http://127.0.0.1:8700
-make demo
-afr doctor
-afr runs list
-```
-
-Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
-
-```bash
-export AFR_REPLAY_ENABLED=true
-# Docker: pass the same variable into compose
-AFR_REPLAY_ENABLED=true docker compose up --build
-```
-
-## CLI-first spine
+## CLI workflow
 
 ```bash
 afr runs list --status failed
@@ -107,7 +153,9 @@ afr export 648c2cd9 -o incident-42.json
 afr-regression-case 648c2cd9 --from dfd2082b -o cases/payment-timeout
 ```
 
-The generated regression case contains `case.json`, a pytest template, and a README. It is safe by default: it gives you a fixture for asserting the repaired behavior, not a mechanism for surprise side effects.
+With Docker, prefix those commands with `docker compose exec afr`.
+
+The generated regression case contains `case.json`, a pytest template, and a README. It is safe by default: it gives you a fixture for asserting repaired behavior, not a mechanism for surprise side effects.
 
 ## Record your agent
 
@@ -131,6 +179,13 @@ with afr.start_run("trip-planner", metadata={"env": "dev"}):
 
 ## Replay from a checkpoint
 
+Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
+
+```bash
+export AFR_REPLAY_ENABLED=true
+AFR_REPLAY_ENABLED=true docker compose up --build
+```
+
 ```python
 import afr
 
@@ -139,7 +194,6 @@ def resume(ctx: afr.ReplayContext):
     agent = MyAgent.from_state(ctx.state)
     return agent.continue_run()
 
-# Requires AFR_REPLAY_ENABLED=true in the replaying process and backend.
 afr.replay(run_id, checkpoint_id, mode="mock_tools")
 ```
 
@@ -150,22 +204,24 @@ The server reconstructs recorded state and prepares a replay ticket. It does not
 | Stack | AFR attachment path |
 | --- | --- |
 | Plain Python | decorators + `with afr.start_run(...)` |
-| LangChain / LangGraph | callback handler |
+| LangChain / LangGraph | optional callback handler |
 | Custom framework | HTTP API or SDK calls |
 | Codex | `Codex-AFR/` wrapper and harness |
+| MCP clients | local HTTP MCP surface |
 
 See:
 
-- [docs/quickstart.md](docs/quickstart.md)
-- [docs/sdk.md](docs/sdk.md)
-- [docs/cli.md](docs/cli.md)
-- [docs/api.md](docs/api.md)
-- [docs/replay.md](docs/replay.md)
-- [docs/data-model.md](docs/data-model.md)
-- [docs/integrations.md](docs/integrations.md)
-- [docs/evals.md](docs/evals.md)
-- [docs/roadmap.md](docs/roadmap.md)
-- [docs/mcp.md](docs/mcp.md)
+- [Quickstart](docs/quickstart.md)
+- [Dependency map and weaknesses](docs/dependency-map.md)
+- [SDK](docs/sdk.md)
+- [CLI](docs/cli.md)
+- [API](docs/api.md)
+- [Replay](docs/replay.md)
+- [Data model](docs/data-model.md)
+- [Integrations](docs/integrations.md)
+- [Evals](docs/evals.md)
+- [Roadmap](docs/roadmap.md)
+- [MCP](docs/mcp.md)
 
 ## Security model
 
@@ -176,27 +232,33 @@ AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can
 - CORS is restricted to local AFR origins by default.
 - Set `AFR_API_TOKEN=<token>` before exposing AFR outside loopback.
 - Redaction runs at ingest and is best-effort, not a guarantee.
-- Treat the SQLite database as sensitive at rest.
+- Treat the SQLite database and exported run bundles as sensitive at rest.
+- Replay remains disabled unless `AFR_REPLAY_ENABLED=true` is explicitly set.
 
 ## Repository layout
 
 ```text
-backend/   FastAPI app: API, replay engine, storage, schemas
-sdk/       Python SDK: client, context, hooks, wrappers, integrations
-cli/       afr CLI
-Codex-AFR/ Codex wrapper, hook bridge, package helpers, and smoke test
-examples/  runnable offline demo agents
-scripts/   demo and smoke helpers
-docs/      quickstart, SDK, CLI, API, replay, data model, integrations, evals
-evals/     small public eval seed records for AFR behavior
+backend/    FastAPI app: API, replay engine, storage, schemas
+sdk/        Python SDK: client, context, hooks, wrappers, integrations
+cli/        afr CLI and regression-case generator
+ui/         React/Vite inspection interface
+Codex-AFR/  Codex wrapper, hook bridge, package helpers, and smoke test
+examples/   runnable offline demo agents
+scripts/    demo and smoke helpers
+docs/       product and integration documentation
+evals/      small public eval seed records for AFR behavior
 ```
 
 ## Tests
 
 ```bash
 make test
-make smoke
+make build-ui
+make smoke                    # against a running backend
+docker compose up --build     # integrated image path
 ```
+
+CI verifies the Python suite, UI typecheck/build, integrated Docker image, bundled CLI, and portable ZIP assembly.
 
 ## Project status
 
@@ -209,6 +271,8 @@ Current focus areas:
 - improving diff and checkpoint inspection flows
 - preserving local-first privacy while making agent failures easier to reproduce safely
 - turning repaired failure shapes into regression cases and eval seeds
+- adding event pagination or windowed rendering for very large runs
+- moving from manual direct pins to a hash-verified Python lock workflow
 
 See:
 
