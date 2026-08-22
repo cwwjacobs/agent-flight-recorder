@@ -3,12 +3,12 @@
 Where AFR is headed, in order. Self-hosted, SQLite-backed, replay-first —
 those stay.
 
-## v0.3 — LangChain / LangGraph adapter ✅ (in this release)
+## Shipped in v0.2.0 — LangChain / LangGraph adapter ✅
 
 `afr.integrations.langchain.AFRCallbackHandler`: one-line adoption for the
 largest agent-framework ecosystem. See [integrations.md](integrations.md).
 
-## v0.4 — more framework adapters
+## Next — more framework adapters
 
 - **OpenAI Agents SDK** adapter (trace processor → AFR events)
 - **CrewAI** adapter (task/tool callbacks → AFR events)
