@@ -14,11 +14,12 @@ AFR does not claim to recover private model reasoning, hidden chain-of-thought, 
 make install      # create venv and install backend, sdk, cli, and test deps
 make test         # run backend/tests via pytest
 make serve        # run backend API on http://127.0.0.1:8700
-make build-ui     # build UI assets
 make smoke        # smoke test against running backend
 make demo         # record toy agent run via SDK
 make demo-docker  # seed demo incident over HTTP
 ```
+
+The legacy UI build is intentionally quarantined during containment review; do not invent or assume a UI build target. See `docs/dependency-integrity.md`.
 
 ## Agent Operating Rules
 
