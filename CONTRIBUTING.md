@@ -32,4 +32,4 @@ cd ui && npm ci && npm run dev   # UI dev server with /api proxy
 
 ## License
 
-By contributing, you agree that your contribution is provided under the repository's MIT License. Copyright and attribution notices should preserve Terminus Protocol attribution where applicable.
+By contributing, you agree that your contribution is provided under the repository's Apache License 2.0. Copyright and attribution notices should preserve Terminus Protocol attribution where applicable.
