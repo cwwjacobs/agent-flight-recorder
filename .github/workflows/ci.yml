@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: "3.12"
@@ -19,11 +21,98 @@ jobs:
         run: python scripts/check_claims.py
       - name: Install backend, SDK, CLI
         run: pip install --constraint backend/requirements.txt -e ./sdk -e ./cli -e './backend[dev]'
+      - name: Verify installed dependency graph
+        run: python -m pip check
       - name: Run test suite
         run: python -m pytest backend/tests -q
 
-  ui_quarantined:
-    name: UI build quarantined
+  ui:
+    name: UI typecheck and build
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Legacy UI build disabled during containment review."
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install locked UI dependencies
+        working-directory: ui
+        run: npm ci
+      - name: Typecheck and build UI
+        working-directory: ui
+        run: npm run build
+
+  docker:
+    name: Integrated Docker smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build and start the complete app
+        run: docker compose up --build -d
+      - name: Wait for the health endpoint
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:8700/health > /tmp/afr-health.json; then
+              cat /tmp/afr-health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose logs afr
+          exit 1
+      - name: Verify the bundled UI and CLI
+        run: |
+          curl --fail --silent http://127.0.0.1:8700/ | grep -q '<div id="root"></div>'
+          docker compose exec -T afr afr runs list
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs afr
+      - name: Stop containers
+        if: always()
+        run: docker compose down -v
+
+  portable_bundle:
+    name: Portable bundle
+    needs: [backend, ui, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Build UI for Python-only local runs
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+      - name: Assemble portable archive
+        run: |
+          bundle="dist/agent-flight-recorder-portable"
+          mkdir -p "$bundle"
+          git archive --format=tar HEAD | tar -xf - -C "$bundle"
+          mkdir -p "$bundle/ui/dist"
+          cp -R ui/dist/. "$bundle/ui/dist/"
+          printf '%s\n' \
+            'Start with Docker Desktop:' \
+            '  macOS/Linux: sh start.sh' \
+            '  Windows: double-click start.cmd' \
+            'Then open http://127.0.0.1:8700' \
+            > "$bundle/RUN_ME_FIRST.txt"
+          cd dist
+          zip -qr agent-flight-recorder-portable.zip agent-flight-recorder-portable
+      - name: Upload portable bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agent-flight-recorder-portable
+          path: dist/agent-flight-recorder-portable.zip
+          if-no-files-found: error
+          retention-days: 14
