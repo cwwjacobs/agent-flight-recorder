@@ -46,8 +46,17 @@ export const api = {
     return request<Run[]>(`/runs?${qs}`);
   },
   getRun: (runId: string) => request<Run>(`/runs/${runId}`),
-  getEvents: (runId: string) =>
-    request<AfrEvent[]>(`/runs/${runId}/events?limit=10000`),
+  getEvents: async (runId: string) => {
+    const events: AfrEvent[] = [];
+    const pageSize = 10000;
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await request<AfrEvent[]>(
+        `/runs/${runId}/events?limit=${pageSize}&offset=${offset}`,
+      );
+      events.push(...page);
+      if (page.length < pageSize) return events;
+    }
+  },
   getCheckpoints: (runId: string) => request<Checkpoint[]>(`/runs/${runId}/checkpoints`),
   getStateAt: (runId: string, checkpointId: string) =>
     request<StateAt>(`/runs/${runId}/state-at/${checkpointId}`),

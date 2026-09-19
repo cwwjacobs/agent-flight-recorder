@@ -448,7 +448,7 @@ def cmd_case(args: argparse.Namespace) -> None:
         run_id = resolve_run_id(client, args.run_id)
         checkpoint_id = resolve_checkpoint_id(client, run_id, args.from_checkpoint)
         run = client.get_run(run_id)
-        events = client.list_events(run_id, limit=10000)
+        events = client.list_all_events(run_id)
         checkpoints = client.list_checkpoints(run_id)
         checkpoint = next((c for c in checkpoints if c["id"] == checkpoint_id), None)
         if checkpoint is None:

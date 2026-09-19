@@ -46,6 +46,19 @@ def test_seed_includes_mock_tools_replay_plan(api):
     assert "check_inventory" in replay["mock_results"]
 
 
+def test_seed_succeeds_when_replay_is_disabled_by_default(api, monkeypatch):
+    monkeypatch.delenv("AFR_REPLAY_ENABLED", raising=False)
+
+    response = api.post("/demo/seed")
+
+    assert response.status_code == 201
+    doc = response.json()
+    assert doc["run"]["status"] == "failed"
+    assert doc["replay"]["status"] == "disabled"
+    events = api.get(f"/runs/{doc['run']['id']}/events").json()
+    assert any(event["event_type"] == "replay_disabled" for event in events)
+
+
 def test_seed_reconstructs_pre_charge_state(api):
     doc = api.post("/demo/seed").json()
     run_id = doc["run"]["id"]

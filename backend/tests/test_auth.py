@@ -79,6 +79,17 @@ def test_sdk_client_attaches_token(monkeypatch):
         client.close()
 
 
+def test_sdk_ignores_ambient_proxy_configuration_by_default(monkeypatch):
+    from afr.client import AFRClient
+
+    monkeypatch.setenv("ALL_PROXY", "socks5h://127.0.0.1:9")
+    client = AFRClient(api_url="http://127.0.0.1:8700")
+    try:
+        assert client._http._trust_env is False
+    finally:
+        client.close()
+
+
 # ---------------------------------------------------------------------------
 # CORS policy
 

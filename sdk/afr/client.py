@@ -29,6 +29,7 @@ class AFRClient:
         http_client: httpx.Client | None = None,
         timeout: float = 10.0,
         token: str | None = None,
+        trust_env: bool = False,
     ):
         self._token = resolve_api_token(token)
         if http_client is not None:
@@ -37,7 +38,10 @@ class AFRClient:
         else:
             headers = {"Authorization": f"Bearer {self._token}"} if self._token else None
             self._http = httpx.Client(
-                base_url=resolve_api_url(api_url), timeout=timeout, headers=headers
+                base_url=resolve_api_url(api_url),
+                timeout=timeout,
+                headers=headers,
+                trust_env=trust_env,
             )
             self._owns_http = True
 
@@ -122,6 +126,31 @@ class AFRClient:
             params["event_type"] = event_type
         return self._request("GET", f"/runs/{run_id}/events", params=params)
 
+    def list_all_events(
+        self,
+        run_id: str,
+        event_type: str | None = None,
+        *,
+        page_size: int = 10_000,
+    ) -> list[dict]:
+        """Return every matching event, following the API's paginated surface."""
+        if not 1 <= page_size <= 10_000:
+            raise ValueError("page_size must be between 1 and 10000")
+
+        events: list[dict] = []
+        offset = 0
+        while True:
+            page = self.list_events(
+                run_id,
+                event_type=event_type,
+                limit=page_size,
+                offset=offset,
+            )
+            events.extend(page)
+            if len(page) < page_size:
+                return events
+            offset += len(page)
+
     # -- checkpoints / state --------------------------------------------------
 
     def checkpoint(self, run_id: str, label: str | None = None, state: dict | None = None) -> dict:
@@ -180,6 +209,6 @@ class AFRClient:
         return {
             "format": "afr.export.v1",
             "run": self.get_run(run_id),
-            "events": self.list_events(run_id, limit=10000),
+            "events": self.list_all_events(run_id),
             "checkpoints": self.list_checkpoints(run_id),
         }

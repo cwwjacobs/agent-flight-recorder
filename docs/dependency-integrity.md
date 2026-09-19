@@ -16,7 +16,7 @@ Readiness Phase 01 and the containment repair applied on 2026-06-19.
   - `uvicorn==0.49.0`
   - `pytest==9.1.0`
   - `httpx==0.28.1`
-  - `anyio==4.13.0`
+  - `anyio==4.14.2` (includes fixes for CVE-2026-63374 and CVE-2026-64847)
 
 ### 2. Containment removal: `httpx2`
 
@@ -29,11 +29,13 @@ AFR source code and is suspiciously close to the legitimate `httpx` test client
 dependency already used by FastAPI and Starlette tests. Treat the prior entries
 as a dependency-confusion / typo risk unless independently proven safe.
 
-### 3. UI build quarantine
+### 3. UI dependency and build gate
 
-The legacy React/Vite UI is preserved in the repository for evidence and later
-review, but the CI UI build job is disabled during containment. This prevents
-CI from running `npm ci` or the bundler while the package tree is under review.
+The React/Vite dependency tree was reviewed and refreshed on 2026-09-19. CI
+installs it with lifecycle scripts disabled, fails on high-severity audit
+findings, and compiles the production bundle. The review upgraded React Router
+to the supported 7.x line and refreshed vulnerable PostCSS/Nanoid transitive
+versions; `npm audit` reported zero known vulnerabilities at review time.
 
 ### 4. CI action pinning
 
@@ -73,8 +75,8 @@ Pinned actions:
 - **Docker digest pinning**: Base images are pinned to patch-version tags, not
   immutable SHA digests. The next step is to switch to digest references after
   verifying the digests against Docker Hub or a trusted registry mirror.
-- **Legacy UI review**: keep the existing UI preserved but inactive until its
-  dependency tree and source behavior have been reviewed.
+- **UI audit freshness**: registry advisories change over time. Keep the CI
+  audit gate enabled and review dependency update pull requests promptly.
 - **Action update cadence**: SHA-pinned actions do not auto-update. Set up
   Dependabot or a similar tool to open PRs when new action releases are
   available.

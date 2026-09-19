@@ -22,4 +22,4 @@ def test_repair_dependencies_are_exactly_pinned():
     assert "pytest==9.1.0" in requirements
     assert "httpx==0.28.1" in requirements
     assert "httpx2==2.4.0" not in requirements
-    assert "anyio==4.13.0" in requirements
+    assert "anyio==4.14.2" in requirements

@@ -3,8 +3,10 @@
 FROM python:3.12.13-slim
 WORKDIR /app
 
+COPY LICENSE LICENSE.md NOTICE COMMERCIAL_LICENSE.md ./
 COPY backend/pyproject.toml backend/pyproject.toml
 COPY backend/requirements.txt backend/requirements.txt
+COPY backend/LICENSE backend/LICENSE
 COPY backend/app backend/app
 
 RUN pip install --no-cache-dir --constraint backend/requirements.txt ./backend
