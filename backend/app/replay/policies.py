@@ -95,20 +95,19 @@ def build_tool_plan(
     bound, or if planning takes longer than the configured timeout, this raises
     :class:`ReplayLimitExhausted`.
     """
-    tool_events = repo.list_events(run_id, event_type="tool_call", limit=1_000_000)
-
     max_events = config.replay_max_events()
-    if max_events is not None and len(tool_events) > max_events:
-        raise ReplayLimitExhausted(
-            f"tool events ({len(tool_events)}) exceeds max_events ({max_events})"
-        )
-
     timeout_seconds = config.replay_timeout_seconds()
     start = time.monotonic()
 
     policies: dict[str, str] = {}
     last_results: dict[str, Any] = {}
-    for event in tool_events:
+    event_count = 0
+    for event in repo.iter_events(run_id, event_type="tool_call", batch_size=1000):
+        event_count += 1
+        if max_events is not None and event_count > max_events:
+            raise ReplayLimitExhausted(
+                f"tool events exceed max_events ({max_events})"
+            )
         if timeout_seconds is not None and (time.monotonic() - start) > timeout_seconds:
             raise ReplayLimitExhausted("timeout")
 

@@ -124,17 +124,13 @@ def test_list_all_events_follows_pagination(sdk_client):
 
 
 def test_sdk_replay_invokes_registered_handler(sdk_client):
-    captured: dict = {}
-
     with afr.start_run("replayable", client=sdk_client) as run:
         afr.log_state({"counter": 41})
         ckpt = afr.checkpoint("before-finish")
 
     @afr.register_resume_handler
     def resume(ctx: afr.ReplayContext):
-        captured["state"] = ctx.state
-        captured["mode"] = ctx.mode
-        return "resumed!"
+        return {"message": "resumed!", "state": ctx.state, "mode": ctx.mode}
 
     try:
         # dry_run: handler must NOT be invoked
@@ -144,7 +140,10 @@ def test_sdk_replay_invokes_registered_handler(sdk_client):
 
         result = afr.replay(run.run_id, ckpt["id"], mode="mock_tools", client=sdk_client)
         assert result["handler_invoked"] is True
-        assert result["handler_result"] == "resumed!"
-        assert captured["state"] == {"counter": 41}
+        assert result["handler_result"] == {
+            "message": "resumed!",
+            "state": {"counter": 41},
+            "mode": "mock_tools",
+        }
     finally:
         afr.clear_resume_handlers()

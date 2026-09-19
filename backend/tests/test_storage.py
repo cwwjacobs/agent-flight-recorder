@@ -57,6 +57,7 @@ def test_required_indexes_exist():
         "idx_events_event_type",
         "idx_events_run_created",
         "idx_events_run_type",
+        "idx_events_run_type_seq",
         "idx_checkpoints_run_id",
     ):
         assert expected in names, f"missing index {expected}"

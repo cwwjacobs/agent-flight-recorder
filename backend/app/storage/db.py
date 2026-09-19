@@ -65,6 +65,11 @@ MIGRATIONS: list[str] = [
 
     CREATE INDEX IF NOT EXISTS idx_runs_parent ON runs(parent_run_id);
     """,
+    # v3 — efficient keyset scans for replay/state reconstruction
+    """
+    CREATE INDEX IF NOT EXISTS idx_events_run_type_seq
+        ON events(run_id, event_type, seq);
+    """,
 ]
 
 

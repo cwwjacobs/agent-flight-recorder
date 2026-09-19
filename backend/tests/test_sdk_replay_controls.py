@@ -6,6 +6,8 @@ events end-to-end against the backend via an injected TestClient.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -192,11 +194,7 @@ def test_ready_ticket_invokes_handler(monkeypatch, sdk_client):
         "replay",
         lambda *_args, **_kwargs: _ticket(run_id, ckpt["id"], "ready"),
     )
-    called = False
-
     def handler(_ctx):
-        nonlocal called
-        called = True
         return "ok"
 
     result = afr.replay(
@@ -207,9 +205,33 @@ def test_ready_ticket_invokes_handler(monkeypatch, sdk_client):
         handler=handler,
     )
 
-    assert called is True
     assert result["handler_invoked"] is True
     assert result["handler_result"] == "ok"
+
+
+def test_replay_timeout_terminates_handler_process(monkeypatch, tmp_path):
+    monkeypatch.setenv("AFR_REPLAY_TIMEOUT_SECONDS", "0.1")
+    marker = tmp_path / "handler-survived-timeout"
+
+    def slow_handler(_ctx):
+        time.sleep(0.4)
+        marker.write_text("should never be written")
+        return "late"
+
+    ctx = afr.ReplayContext(
+        run_id="run",
+        checkpoint_id="checkpoint",
+        label=None,
+        mode="mock_tools",
+        state={},
+    )
+
+    with pytest.raises(ReplayLimitExhausted) as exc_info:
+        replay_hooks._invoke_handler(slow_handler, ctx)
+
+    assert exc_info.value.reason == "timeout"
+    time.sleep(0.4)
+    assert not marker.exists()
 
 
 def test_replay_bound_defaults_are_finite(monkeypatch):

@@ -59,7 +59,7 @@ AFR is intended for local development, debugging, evaluation, and audit workflow
 - Which side-effecting tools should be mocked, skipped, blocked, or explicitly allowed?
 - Which failure should become a regression case or eval seed?
 
-The replay boundary is explicit. The backend reconstructs recorded state and prepares a replay ticket. It does not execute user code. A user-provided resume handler owns replay execution and should use the SDK helpers to honor mock, skip, block, and allow decisions.
+The replay boundary is explicit. The backend reconstructs recorded state and prepares a replay ticket. It does not execute user code. A user-provided resume handler owns replay execution and should use the SDK helpers to honor mock, skip, block, and allow decisions. Non-dry-run handlers execute in a separate SDK worker process so timeout enforcement can terminate the running handler.
 
 ## What AFR does not claim
 

@@ -89,11 +89,9 @@ into locally provable claims.
   base images remain patch-tag pinned, not digest pinned. No dependency hashes
   or image digests were invented. Docker and hosted CI configuration were
   statically tested but were not executed locally.
-- **Timeout cancellation — REVIEW_REQUIRED:** Python cannot forcibly terminate
-  an already-running handler thread. The SDK returns a finite timeout outcome
-  and stops waiting, but a non-cooperative handler may continue in its worker
-  thread. Strong isolation requires running replay handlers in a separately
-  terminable process or sandbox.
+- **Timeout cancellation — RESOLVED 2026-09-19:** replay handlers now run in a
+  separately terminable worker process. The SDK terminates the worker on timeout
+  and escalates to a kill if it does not exit promptly.
 - **Handler trust boundary — REVIEW_REQUIRED:** lifecycle and action audit
   events are durable when handlers use `ReplayContext.call_tool`, but arbitrary
   user-supplied handler code can call external systems directly and bypass that
