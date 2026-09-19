@@ -12,6 +12,7 @@ client-supplied timestamps.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from app.storage import repo
@@ -27,8 +28,8 @@ def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def fold_state(events: list[dict]) -> dict[str, Any]:
-    """Fold a list of event dicts (in seq order) into a state dict."""
+def fold_state(events: Iterable[dict]) -> dict[str, Any]:
+    """Fold event dicts (in seq order) into a state dict."""
     state: dict[str, Any] = {}
     for event in events:
         if event.get("event_type") != "state_snapshot":
@@ -45,8 +46,12 @@ def fold_state(events: list[dict]) -> dict[str, Any]:
 
 
 def reconstruct_state(run_id: str, up_to_seq: int | None = None) -> dict[str, Any]:
-    """Reconstruct run state from recorded events, optionally up to a seq."""
-    events = repo.list_events(
-        run_id, event_type="state_snapshot", limit=1_000_000, up_to_seq=up_to_seq
+    """Reconstruct run state without an internal event-count ceiling."""
+    return fold_state(
+        repo.iter_events(
+            run_id,
+            event_type="state_snapshot",
+            batch_size=1000,
+            up_to_seq=up_to_seq,
+        )
     )
-    return fold_state(events)

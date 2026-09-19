@@ -17,11 +17,12 @@ the ticket back.
 
 from __future__ import annotations
 
-import concurrent.futures
 import hashlib
 import importlib
+import multiprocessing as mp
 import os
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 
 from afr.client import AFRClient
@@ -64,6 +65,10 @@ class ReplayLimitExhausted(RuntimeError):
     def __init__(self, reason: str):
         self.reason = reason
         super().__init__(f"replay limit exhausted: {reason}")
+
+
+class ReplayHandlerProcessError(RuntimeError):
+    """Raised when the isolated replay worker cannot return a handler outcome."""
 
 
 def _replay_enabled() -> bool:
@@ -281,22 +286,138 @@ def build_replay_context(
     )
 
 
-def _invoke_handler(handler: ResumeHandler, ctx: ReplayContext) -> Any:
-    """Invoke a resume handler, applying operator bounds."""
-    timeout = _replay_timeout_seconds()
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(handler, ctx)
+def _handler_worker(handler: ResumeHandler, ctx: ReplayContext, send_conn: Any) -> None:
+    """Run one handler inside an isolated worker process."""
+
+    def _ipc_event_sink(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+        send_conn.send(("event", event_type, payload))
+        return {"event_id": None}
+
+    ctx.event_sink = _ipc_event_sink
     try:
-        result = future.result(timeout=timeout)
-    except concurrent.futures.TimeoutError as exc:
-        future.cancel()
-        executor.shutdown(wait=False, cancel_futures=True)
-        raise ReplayLimitExhausted("timeout") from exc
-    except BaseException:
-        executor.shutdown(wait=True, cancel_futures=True)
-        raise
-    executor.shutdown(wait=True)
-    return result
+        result = handler(ctx)
+        try:
+            send_conn.send(("result", result, ctx.steps))
+        except Exception as exc:
+            send_conn.send(
+                (
+                    "transport_error",
+                    f"handler result of type {type(result).__name__} could not cross "
+                    f"the replay process boundary: {exc}",
+                    ctx.steps,
+                )
+            )
+    except BaseException as exc:
+        try:
+            send_conn.send(("error", exc, ctx.steps))
+        except Exception:
+            send_conn.send(
+                (
+                    "error_text",
+                    f"{type(exc).__module__}.{type(exc).__qualname__}: {exc}",
+                    ctx.steps,
+                )
+            )
+    finally:
+        send_conn.close()
+
+
+def _replay_process_context() -> mp.context.BaseContext:
+    # Prefer fork where available so locally defined handlers continue to work.
+    # Platforms without fork use spawn; handlers there must be pickleable.
+    methods = mp.get_all_start_methods()
+    return mp.get_context("fork" if "fork" in methods else "spawn")
+
+
+def _invoke_handler(handler: ResumeHandler, ctx: ReplayContext) -> Any:
+    """Invoke a resume handler in a killable worker process."""
+    timeout = _replay_timeout_seconds()
+    process_ctx = _replay_process_context()
+    recv_conn, send_conn = process_ctx.Pipe(duplex=False)
+    child_ctx = replace(ctx, event_sink=None)
+    process = process_ctx.Process(
+        target=_handler_worker,
+        args=(handler, child_ctx, send_conn),
+        name="afr-replay-handler",
+        daemon=True,
+    )
+
+    try:
+        process.start()
+    except Exception as exc:
+        recv_conn.close()
+        send_conn.close()
+        raise ReplayHandlerProcessError(
+            "replay handler could not start in an isolated process; on spawn-only "
+            "platforms use an importable module-level handler"
+        ) from exc
+    finally:
+        # The child owns its copy after process.start().
+        send_conn.close()
+
+    deadline = time.monotonic() + timeout
+    terminal_message: tuple[Any, ...] | None = None
+
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                process.terminate()
+                process.join(timeout=1.0)
+                if process.is_alive():
+                    process.kill()
+                    process.join(timeout=1.0)
+                raise ReplayLimitExhausted("timeout")
+
+            if recv_conn.poll(min(0.05, remaining)):
+                try:
+                    message = recv_conn.recv()
+                except EOFError:
+                    message = None
+                if message is not None and message[0] == "event":
+                    if ctx.event_sink is not None:
+                        ctx.event_sink(message[1], message[2])
+                    continue
+                terminal_message = message
+                break
+
+            if not process.is_alive():
+                if recv_conn.poll():
+                    continue
+                break
+
+        process.join(timeout=1.0)
+
+        if terminal_message is None:
+            raise ReplayHandlerProcessError(
+                f"replay handler process exited without a result (exit code {process.exitcode})"
+            )
+
+        kind = terminal_message[0]
+        if kind == "result":
+            ctx.steps = int(terminal_message[2])
+            return terminal_message[1]
+        if kind == "error":
+            ctx.steps = int(terminal_message[2])
+            error = terminal_message[1]
+            if isinstance(error, BaseException):
+                raise error
+            raise ReplayHandlerProcessError(str(error))
+        if kind == "error_text":
+            ctx.steps = int(terminal_message[2])
+            raise ReplayHandlerProcessError(str(terminal_message[1]))
+        if kind == "transport_error":
+            ctx.steps = int(terminal_message[2])
+            raise ReplayHandlerProcessError(str(terminal_message[1]))
+        raise ReplayHandlerProcessError(f"unknown replay worker message: {kind!r}")
+    finally:
+        recv_conn.close()
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=1.0)
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=1.0)
 
 
 def replay(

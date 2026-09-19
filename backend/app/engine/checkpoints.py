@@ -15,9 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.engine.events import append_event
 from app.engine.runs import get_run
-from app.engine.state import reconstruct_state
+from app.engine.state import fold_state, reconstruct_state
 from app.engine.util import new_id, utcnow
 from app.redaction import apply_redaction
 from app.storage import repo
@@ -34,34 +33,63 @@ def create_checkpoint(
 ) -> dict:
     get_run(run_id)
     checkpoint_id = new_id()
+    explicit_state = apply_redaction(state) if state is not None else None
 
-    if state is not None:
-        state = apply_redaction(state)
-        append_event(
-            run_id,
-            "state_snapshot",
-            name="checkpoint_state",
-            payload={"state": state, "mode": "replace", "checkpoint_id": checkpoint_id},
+    # The optional state event, checkpoint event, reconstructed state, and
+    # checkpoint row share one SQLite writer transaction. A crash cannot leave
+    # a visible checkpoint timeline event without its authoritative row.
+    with repo.transaction(immediate=True) as conn:
+        if explicit_state is not None:
+            repo.insert_event_tx(
+                conn,
+                event_id=new_id(),
+                run_id=run_id,
+                event_type="state_snapshot",
+                name="checkpoint_state",
+                payload=apply_redaction(
+                    {
+                        "state": explicit_state,
+                        "mode": "replace",
+                        "checkpoint_id": checkpoint_id,
+                    }
+                ),
+                created_at=utcnow(),
+            )
+
+        event = repo.insert_event_tx(
+            conn,
+            event_id=new_id(),
+            run_id=run_id,
+            event_type="checkpoint",
+            name=label or "checkpoint",
+            payload=apply_redaction({"checkpoint_id": checkpoint_id, "label": label}),
+            created_at=utcnow(),
         )
 
-    event = append_event(
-        run_id,
-        "checkpoint",
-        name=label or "checkpoint",
-        payload={"checkpoint_id": checkpoint_id, "label": label},
-    )
+        resolved_state = (
+            explicit_state
+            if explicit_state is not None
+            else fold_state(
+                repo.iter_events(
+                    run_id,
+                    event_type="state_snapshot",
+                    batch_size=1000,
+                    up_to_seq=event["seq"],
+                    conn=conn,
+                )
+            )
+        )
 
-    resolved_state = state if state is not None else reconstruct_state(run_id, up_to_seq=event["seq"])
-
-    return repo.insert_checkpoint(
-        checkpoint_id=checkpoint_id,
-        run_id=run_id,
-        event_id=event["id"],
-        event_seq=event["seq"],
-        label=label,
-        state=resolved_state,
-        created_at=utcnow(),
-    )
+        return repo.insert_checkpoint_tx(
+            conn,
+            checkpoint_id=checkpoint_id,
+            run_id=run_id,
+            event_id=event["id"],
+            event_seq=event["seq"],
+            label=label,
+            state=resolved_state,
+            created_at=utcnow(),
+        )
 
 
 def get_checkpoint(checkpoint_id: str, include_state: bool = False) -> dict:

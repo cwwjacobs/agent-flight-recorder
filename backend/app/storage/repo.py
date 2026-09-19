@@ -9,12 +9,28 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from app.storage.db import connect
 
 # ---------------------------------------------------------------------------
 # helpers
+
+
+@contextmanager
+def transaction(*, immediate: bool = False) -> Iterator[sqlite3.Connection]:
+    """Open an explicit transaction, optionally reserving the writer lock immediately."""
+    with connect() as conn:
+        conn.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+        try:
+            yield conn
+        except BaseException:
+            conn.rollback()
+            raise
+        else:
+            conn.commit()
 
 
 def _loads(text: str | None, fallback: Any) -> Any:
@@ -204,6 +220,25 @@ def event_type_counts_for_runs(run_ids: list[str]) -> dict[str, dict[str, int]]:
 # events (append-only)
 
 
+def insert_event_tx(
+    conn: sqlite3.Connection,
+    event_id: str,
+    run_id: str,
+    event_type: str,
+    name: str | None,
+    payload: dict,
+    created_at: str,
+) -> dict:
+    """Insert one event using the caller's active transaction."""
+    cur = conn.execute(
+        "INSERT INTO events (id, run_id, event_type, name, payload, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (event_id, run_id, event_type, name, json.dumps(payload), created_at),
+    )
+    row = conn.execute("SELECT * FROM events WHERE seq = ?", (cur.lastrowid,)).fetchone()
+    return _event_row_to_dict(row)
+
+
 def insert_event(
     event_id: str,
     run_id: str,
@@ -212,16 +247,8 @@ def insert_event(
     payload: dict,
     created_at: str,
 ) -> dict:
-    with connect() as conn:
-        cur = conn.execute(
-            "INSERT INTO events (id, run_id, event_type, name, payload, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (event_id, run_id, event_type, name, json.dumps(payload), created_at),
-        )
-        seq = cur.lastrowid
-        conn.commit()
-        row = conn.execute("SELECT * FROM events WHERE seq = ?", (seq,)).fetchone()
-    return _event_row_to_dict(row)
+    with transaction() as conn:
+        return insert_event_tx(conn, event_id, run_id, event_type, name, payload, created_at)
 
 
 def list_events(
@@ -246,6 +273,76 @@ def list_events(
     return [_event_row_to_dict(r) for r in rows]
 
 
+def _iter_events_on_connection(
+    conn: sqlite3.Connection,
+    run_id: str,
+    *,
+    event_type: str | None,
+    batch_size: int,
+    up_to_seq: int | None,
+    after_seq: int,
+) -> Iterator[dict]:
+    cursor = after_seq
+    while True:
+        sql = "SELECT * FROM events WHERE run_id = ? AND seq > ?"
+        params: list[Any] = [run_id, cursor]
+        if event_type:
+            sql += " AND event_type = ?"
+            params.append(event_type)
+        if up_to_seq is not None:
+            sql += " AND seq <= ?"
+            params.append(up_to_seq)
+        sql += " ORDER BY seq LIMIT ?"
+        params.append(batch_size)
+        rows = conn.execute(sql, params).fetchall()
+        if not rows:
+            return
+        for row in rows:
+            yield _event_row_to_dict(row)
+        cursor = rows[-1]["seq"]
+        if len(rows) < batch_size:
+            return
+
+
+def iter_events(
+    run_id: str,
+    event_type: str | None = None,
+    *,
+    batch_size: int = 1000,
+    up_to_seq: int | None = None,
+    after_seq: int = 0,
+    conn: sqlite3.Connection | None = None,
+) -> Iterator[dict]:
+    """Stream events in seq order with keyset pagination.
+
+    Supplying conn keeps iteration inside the caller's transaction. Otherwise
+    AFR holds one read transaction so reconstruction sees a consistent snapshot.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    if conn is not None:
+        yield from _iter_events_on_connection(
+            conn,
+            run_id,
+            event_type=event_type,
+            batch_size=batch_size,
+            up_to_seq=up_to_seq,
+            after_seq=after_seq,
+        )
+        return
+
+    with connect() as owned:
+        owned.execute("BEGIN")
+        yield from _iter_events_on_connection(
+            owned,
+            run_id,
+            event_type=event_type,
+            batch_size=batch_size,
+            up_to_seq=up_to_seq,
+            after_seq=after_seq,
+        )
+
+
 def get_event(event_id: str) -> dict | None:
     with connect() as conn:
         row = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
@@ -254,6 +351,26 @@ def get_event(event_id: str) -> dict | None:
 
 # ---------------------------------------------------------------------------
 # checkpoints
+
+
+def insert_checkpoint_tx(
+    conn: sqlite3.Connection,
+    checkpoint_id: str,
+    run_id: str,
+    event_id: str,
+    event_seq: int,
+    label: str | None,
+    state: dict,
+    created_at: str,
+) -> dict:
+    """Insert a checkpoint row using the caller's active transaction."""
+    conn.execute(
+        "INSERT INTO checkpoints (id, run_id, event_id, event_seq, label, state, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (checkpoint_id, run_id, event_id, event_seq, label, json.dumps(state), created_at),
+    )
+    row = conn.execute("SELECT * FROM checkpoints WHERE id = ?", (checkpoint_id,)).fetchone()
+    return _checkpoint_row_to_dict(row, include_state=True)
 
 
 def insert_checkpoint(
@@ -265,14 +382,10 @@ def insert_checkpoint(
     state: dict,
     created_at: str,
 ) -> dict:
-    with connect() as conn:
-        conn.execute(
-            "INSERT INTO checkpoints (id, run_id, event_id, event_seq, label, state, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (checkpoint_id, run_id, event_id, event_seq, label, json.dumps(state), created_at),
+    with transaction() as conn:
+        return insert_checkpoint_tx(
+            conn, checkpoint_id, run_id, event_id, event_seq, label, state, created_at
         )
-        conn.commit()
-    return get_checkpoint(checkpoint_id, include_state=True)  # type: ignore[return-value]
 
 
 def get_checkpoint(checkpoint_id: str, include_state: bool = False) -> dict | None:

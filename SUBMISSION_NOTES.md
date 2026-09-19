@@ -3,7 +3,8 @@
 This file describes an earlier submission snapshot. It is retained as a
 historical record and does not describe the current repository license.
 
-Agent Flight Recorder (AFR) is open source under the MIT License.
+This internal submission snapshot was prepared with an MIT open-source licensing
+marker; it is not evidence that AFR was publicly distributed under MIT.
 
 Copyright attribution: Terminus Protocol.
 

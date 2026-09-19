@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.engine import (
     append_event,
     create_checkpoint,
@@ -10,6 +12,7 @@ from app.engine import (
     reconstruct_state,
     state_at_checkpoint,
 )
+from app.storage import repo
 
 
 def test_fold_replace_and_merge():
@@ -64,3 +67,38 @@ def test_checkpoint_with_explicit_state():
     # explicit state is also written to the timeline, so reconstruction agrees
     recon = reconstruct_state(run_id, up_to_seq=ckpt["event_seq"])
     assert recon == {"authoritative": 1}
+
+
+def test_state_reconstruction_streams_across_multiple_pages():
+    run = create_run("paged-reconstruction")
+    run_id = run["id"]
+
+    with repo.transaction() as conn:
+        for i in range(2505):
+            repo.insert_event_tx(
+                conn,
+                event_id=f"paged-{i}",
+                run_id=run_id,
+                event_type="state_snapshot",
+                name=None,
+                payload={"state": {"step": i}, "mode": "merge"},
+                created_at="2026-01-01T00:00:00+00:00",
+            )
+
+    assert reconstruct_state(run_id) == {"step": 2504}
+
+
+def test_checkpoint_creation_rolls_back_all_writes_on_failure(monkeypatch):
+    run = create_run("atomic-checkpoint")
+    run_id = run["id"]
+
+    def fail_checkpoint_row(*_args, **_kwargs):
+        raise RuntimeError("simulated checkpoint row failure")
+
+    monkeypatch.setattr(repo, "insert_checkpoint_tx", fail_checkpoint_row)
+
+    with pytest.raises(RuntimeError, match="simulated checkpoint row failure"):
+        create_checkpoint(run_id, label="should-rollback", state={"step": 7})
+
+    assert repo.list_events(run_id) == []
+    assert repo.list_checkpoints(run_id, include_state=True) == []
