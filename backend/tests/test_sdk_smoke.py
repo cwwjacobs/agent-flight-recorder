@@ -6,6 +6,8 @@ AFRClient — full SDK + HTTP + engine + storage, no sockets.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -83,6 +85,42 @@ def test_wrappers_are_noops_without_active_run():
         return a + b
 
     assert add(1, 2) == 3  # no run open, no crash, nothing recorded
+
+
+def test_async_wrappers_await_and_record_results(sdk_client):
+    @afr.record_tool_call(policy="safe")
+    async def async_tool(value: int) -> int:
+        await asyncio.sleep(0)
+        return value * 2
+
+    @afr.record_model_call(model="async-fake")
+    async def async_model(prompt: str) -> str:
+        await asyncio.sleep(0)
+        return prompt.upper()
+
+    async def exercise() -> str:
+        with afr.start_run("async-wrappers", client=sdk_client) as run:
+            assert await async_tool(3) == 6
+            assert await async_model("hi") == "HI"
+        return run.run_id
+
+    run_id = asyncio.run(exercise())
+    events = sdk_client.list_events(run_id)
+    tool = next(event for event in events if event["event_type"] == "tool_call")
+    model = next(event for event in events if event["event_type"] == "model_call")
+    assert tool["payload"]["result"] == 6
+    assert tool["payload"]["policy"] == "safe"
+    assert model["payload"]["output"] == "HI"
+
+
+def test_list_all_events_follows_pagination(sdk_client):
+    run = sdk_client.create_run("pagination")
+    for index in range(5):
+        sdk_client.append_event(run["id"], "log", payload={"index": index})
+
+    events = sdk_client.list_all_events(run["id"], page_size=2)
+
+    assert [event["payload"]["index"] for event in events] == list(range(5))
 
 
 def test_sdk_replay_invokes_registered_handler(sdk_client):

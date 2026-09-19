@@ -1,5 +1,9 @@
 # Agent Flight Recorder v0.2.0
 
+> Historical release record: v0.2.0 was distributed under Apache-2.0. Current
+> versions are licensed separately under PolyForm Noncommercial 1.0.0. Existing
+> grants for v0.2.0 remain in effect for that version.
+
 **Release scope:** public, local-first OSS baseline for recording and inspecting observable evidence from tool-using agent runs.
 
 ## What ships

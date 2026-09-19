@@ -1,7 +1,7 @@
 # Agent Flight Recorder
 
 [![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-purple.svg)](LICENSE)
 
 **Local-first recorder for observable tool-using agent runs.**
 
@@ -166,6 +166,8 @@ See:
 - [docs/evals.md](docs/evals.md)
 - [docs/roadmap.md](docs/roadmap.md)
 - [docs/mcp.md](docs/mcp.md)
+- [docs/audit-2026-09-19.md](docs/audit-2026-09-19.md)
+- [RELEASE_NOTES_v0.3.0.md](RELEASE_NOTES_v0.3.0.md)
 
 ## Security model
 
@@ -200,7 +202,9 @@ make smoke
 
 ## Project status
 
-AFR is a public OSS baseline maintained by Corey Jacobs / cwwjacobs. The project is Apache-2.0 licensed with Terminus Protocol copyright and notice metadata preserved in the repository.
+AFR is a source-available project maintained and licensed by Corey Jacobs /
+cwwjacobs. Current versions are available for permitted noncommercial use
+under PolyForm Noncommercial 1.0.0. Commercial use requires a separate license.
 
 Current focus areas:
 
@@ -213,11 +217,18 @@ Current focus areas:
 See:
 
 - [LICENSE](LICENSE)
+- [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)
 - [NOTICE](NOTICE)
 - [OPEN_SOURCE_FREEZE.md](OPEN_SOURCE_FREEZE.md)
 
 ## License
 
-Agent Flight Recorder is released under the [Apache License 2.0](LICENSE).
+Agent Flight Recorder is released under the
+[PolyForm Noncommercial License 1.0.0](LICENSE).
 
-Copyright (c) 2026 Terminus Protocol.
+Copyright (c) 2026 Corey Jacobs.
+
+Commercial licensing inquiries: [coresynth@gmail.com](mailto:coresynth@gmail.com).
+Earlier tagged releases and commits remain available under the license terms
+that accompanied those versions; the current license does not revoke grants
+already made for prior versions.

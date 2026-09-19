@@ -14,6 +14,7 @@ call plus an `error` event) and re-raised.
 from __future__ import annotations
 
 import functools
+import inspect
 import time
 import traceback
 from typing import Any, Callable
@@ -43,6 +44,48 @@ def record_model_call(
     """Wrap a function whose call should be recorded as a `model_call` event."""
 
     def _decorate(func: Callable) -> Callable:
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                run = current_run()
+                if run is None:
+                    return await func(*args, **kwargs)
+                started = time.perf_counter()
+                try:
+                    result = await func(*args, **kwargs)
+                except Exception as exc:
+                    duration_ms = (time.perf_counter() - started) * 1000
+                    run.log_model(
+                        model=model,
+                        provider=provider,
+                        name=name or func.__name__,
+                        input=_capture_args(args, kwargs) if capture_args else None,
+                        status="error",
+                        error=f"{type(exc).__name__}: {exc}",
+                        duration_ms=round(duration_ms, 2),
+                        actor="wrapper",
+                    )
+                    run.log_error(
+                        f"model call {func.__name__} failed: {exc}",
+                        traceback=traceback.format_exc(),
+                        actor="wrapper",
+                    )
+                    raise
+                duration_ms = (time.perf_counter() - started) * 1000
+                run.log_model(
+                    model=model,
+                    provider=provider,
+                    name=name or func.__name__,
+                    input=_capture_args(args, kwargs) if capture_args else None,
+                    output=jsonable(result) if capture_result else None,
+                    status="ok",
+                    duration_ms=round(duration_ms, 2),
+                    actor="wrapper",
+                )
+                return result
+
+            return async_wrapper
+
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             run = current_run()
@@ -109,6 +152,46 @@ def record_tool_call(
         tool_name = name or func.__name__
         if policy is not None:
             payload_extra["policy"] = policy
+
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                run = current_run()
+                if run is None:
+                    return await func(*args, **kwargs)
+                started = time.perf_counter()
+                try:
+                    result = await func(*args, **kwargs)
+                except Exception as exc:
+                    duration_ms = (time.perf_counter() - started) * 1000
+                    run.log_tool(
+                        tool_name,
+                        args=_capture_args(args, kwargs) if capture_args else None,
+                        status="error",
+                        error=f"{type(exc).__name__}: {exc}",
+                        duration_ms=round(duration_ms, 2),
+                        actor="wrapper",
+                        **payload_extra,
+                    )
+                    run.log_error(
+                        f"tool {tool_name} failed: {exc}",
+                        traceback=traceback.format_exc(),
+                        actor="wrapper",
+                    )
+                    raise
+                duration_ms = (time.perf_counter() - started) * 1000
+                run.log_tool(
+                    tool_name,
+                    args=_capture_args(args, kwargs) if capture_args else None,
+                    result=jsonable(result) if capture_result else None,
+                    status="ok",
+                    duration_ms=round(duration_ms, 2),
+                    actor="wrapper",
+                    **payload_extra,
+                )
+                return result
+
+            return async_wrapper
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:

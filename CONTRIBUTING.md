@@ -18,7 +18,7 @@ cd ui && npm ci && npm run dev   # UI dev server with /api proxy
 - **Tests come with behavior changes.** Backend/SDK/CLI changes should include or update tests in `backend/tests/`.
 - **Events are append-only.** Do not add UPDATE/DELETE paths on the events table.
 - **State folds by `seq`,** never timestamps.
-- **Redaction is not a feature tier.** Default secret scrubbing stays available in the open-source build.
+- **Redaction is not a feature tier.** Default secret scrubbing stays available in the source-available build.
 - **Do not overclaim replay safety.** The server prepares replay plans and reconstructs state; it does not execute user code.
 - **Preserve the MVP snapshot** under `dist/mvp-agent-flight-recorder/`.
 
@@ -32,4 +32,7 @@ cd ui && npm ci && npm run dev   # UI dev server with /api proxy
 
 ## License
 
-By contributing, you agree that your contribution is provided under the repository's Apache License 2.0. Copyright and attribution notices should preserve Terminus Protocol attribution where applicable.
+By contributing, you agree that your contribution is provided under the
+repository's PolyForm Noncommercial License 1.0.0. Copyright remains with each
+contributor unless separately assigned. The maintainer may require a separate
+contributor agreement before accepting a substantial contribution.

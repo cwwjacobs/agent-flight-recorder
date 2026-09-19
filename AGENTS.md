@@ -19,7 +19,8 @@ make demo         # record toy agent run via SDK
 make demo-docker  # seed demo incident over HTTP
 ```
 
-The legacy UI build is intentionally quarantined during containment review; do not invent or assume a UI build target. See `docs/dependency-integrity.md`.
+The React UI is verified in CI with `npm ci --ignore-scripts`, `npm audit`, and
+`npm run build`. See `docs/dependency-integrity.md`.
 
 ## Agent Operating Rules
 

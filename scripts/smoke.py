@@ -4,8 +4,9 @@
     python scripts/smoke.py [--api-url URL]      # or: make smoke
 
 Walks the core loop end to end: health → license → create run → append
-event → checkpoint → replay (mock_tools) → end run. Exits non-zero on the
-first failure. Honors AFR_API_URL and AFR_API_TOKEN.
+event → checkpoint → state reconstruction → replay request → end run. Replay
+may be disabled by the operator. Exits non-zero on the first failure. Honors
+AFR_API_URL and AFR_API_TOKEN.
 """
 
 from __future__ import annotations
@@ -27,7 +28,10 @@ def call(api_url: str, method: str, path: str, body: dict | None = None) -> dict
     token = os.environ.get("AFR_API_TOKEN", "").strip()
     if token:
         request.add_header("Authorization", f"Bearer {token}")
-    with urllib.request.urlopen(request, timeout=15) as response:
+    # AFR is localhost-first. Do not silently send its API traffic through
+    # ambient HTTP(S)_PROXY / ALL_PROXY configuration.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=15) as response:
         return json.loads(response.read())
 
 
@@ -79,15 +83,31 @@ def main() -> None:
         lambda: call(api_url, "POST", f"/runs/{run_id}/checkpoint", {"label": "smoke-ckpt"}),
     )
     if ckpt:
+        state = step(
+            "GET /runs/{id}/state-at/{checkpoint}",
+            lambda: call(api_url, "GET", f"/runs/{run_id}/state-at/{ckpt['id']}"),
+        )
+        if state and state.get("state", {}).get("smoke") is not True:
+            failed = True
+            print("  [FAIL] checkpoint state did not round-trip")
+
         replay = step(
             "POST /runs/{id}/replay (mock_tools)",
             lambda: call(api_url, "POST", f"/runs/{run_id}/replay", {
                 "checkpoint_id": ckpt["id"], "mode": "mock_tools",
             }),
         )
-        if replay and replay.get("state", {}).get("smoke") is not True:
-            failed = True
-            print("  [FAIL] replay state did not round-trip")
+        if replay:
+            replay_status = replay.get("status")
+            if replay_status == "disabled":
+                print("         replay is disabled by operator (safe default)")
+            elif replay_status == "ready":
+                if replay.get("state", {}).get("smoke") is not True:
+                    failed = True
+                    print("  [FAIL] replay state did not round-trip")
+            else:
+                failed = True
+                print(f"  [FAIL] unexpected replay status: {replay_status!r}")
     step(
         "POST /runs/{id}/end",
         lambda: call(api_url, "POST", f"/runs/{run_id}/end", {"status": "completed"}),

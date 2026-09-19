@@ -15,7 +15,7 @@ AFR demonstrates an end-to-end agent observability system rather than a thin int
 - checkpoint inspection and side-effect-aware replay planning
 - regression-case generation
 - LangChain and LangGraph integration path
-- public CI, smoke tests, documentation, and Apache-2.0 licensing
+- public CI, smoke tests, documentation, and PolyForm Noncommercial licensing
 
 ## 90-second demo
 

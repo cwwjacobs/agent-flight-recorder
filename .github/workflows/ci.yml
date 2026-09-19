@@ -22,8 +22,22 @@ jobs:
       - name: Run test suite
         run: python -m pytest backend/tests -q
 
-  ui_quarantined:
-    name: UI build quarantined
+  ui:
+    name: UI build and dependency audit
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Legacy UI build disabled during containment review."
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install UI dependencies without lifecycle scripts
+        working-directory: ui
+        run: npm ci --ignore-scripts
+      - name: Audit UI dependencies
+        working-directory: ui
+        run: npm audit --audit-level=high
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
