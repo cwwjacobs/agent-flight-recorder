@@ -229,6 +229,3 @@ Agent Flight Recorder is released under the
 Copyright (c) 2026 Corey Jacobs.
 
 Commercial licensing inquiries: [coresynth@gmail.com](mailto:coresynth@gmail.com).
-Earlier tagged releases and commits remain available under the license terms
-that accompanied those versions; the current license does not revoke grants
-already made for prior versions.
