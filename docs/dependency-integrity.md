@@ -37,6 +37,11 @@ findings, and compiles the production bundle. The review upgraded React Router
 to the supported 7.x line and refreshed vulnerable PostCSS/Nanoid transitive
 versions; `npm audit` reported zero known vulnerabilities at review time.
 
+`@playwright/test` was added 2026-09-24 as a dev-only dependency for the local
+browser smoke journey (`npm run test:e2e`). It is not part of the production
+bundle, installs no browser binaries under `npm ci --ignore-scripts`, and
+reported zero known vulnerabilities at add time.
+
 ### 4. CI action pinning
 
 Workflows in `.github/workflows/ci.yml` pin official GitHub Actions to specific
