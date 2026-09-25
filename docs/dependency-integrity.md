@@ -37,10 +37,12 @@ findings, and compiles the production bundle. The review upgraded React Router
 to the supported 7.x line and refreshed vulnerable PostCSS/Nanoid transitive
 versions; `npm audit` reported zero known vulnerabilities at review time.
 
-`@playwright/test` was added 2026-09-24 as a dev-only dependency for the local
+`@playwright/test` was added 2026-09-24 as a dev-only dependency for the
 browser smoke journey (`npm run test:e2e`). It is not part of the production
 bundle, installs no browser binaries under `npm ci --ignore-scripts`, and
-reported zero known vulnerabilities at add time.
+reported zero known vulnerabilities at add time. CI explicitly installs Chromium
+and its system dependencies, then runs the journey against a freshly seeded
+backend with the constrained Python packages and the real CLI export path.
 
 ### 4. CI action pinning
 
