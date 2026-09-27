@@ -51,7 +51,10 @@ _SECRET_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----",
         re.S,
     ),
-    re.compile(r"\bsk-(?:ant-|proj-|live-)?[A-Za-z0-9]{16,}\b"),       # OpenAI / Anthropic
+    # OpenAI / Anthropic (sk-ant-api03-..., sk-proj-..., sk-svcacct-...). Key
+    # bodies contain "-" and "_", so match the whole base64url run; requiring
+    # 20+ chars keeps short words such as "sk-learn" untouched.
+    re.compile(r"\bsk-[A-Za-z0-9][A-Za-z0-9_-]{19,}"),
     re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),                      # AWS access key id
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),                     # GitHub token
     re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),                   # GitHub fine-grained PAT

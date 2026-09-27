@@ -182,6 +182,26 @@ def test_value_level_redaction_covers_supported_secret_families():
         assert REDACTED_MARKER in scrubbed[key]
 
 
+def test_value_level_redaction_covers_real_provider_key_shapes():
+    # Real provider keys carry "-" and "_" in their body. The pattern used to
+    # accept only [A-Za-z0-9] after the prefix, so these leaked whole or left
+    # a readable tail behind.
+    secrets = {
+        "anthropic": "sk-" "ant-api03-" "Ab3dEf6hIj9kLm2nOp5qRs8tUv1w-Xy4zAb7cDe0fGh_3iJk6lMn9oPq2rAA",
+        "anthropic_admin": "sk-" "ant-admin01-" "Zq8wXe7cRv6tBy5nUm4iKo3lPa2sDf1gHj0k-LmNoPqRsTuAA",
+        "openai_project": "sk-" "proj-" "Q7mX2vR9tL4k_P8wN3bZ6cY1-dF5gH0jK2T3BlbkFJx9aB_cD4eF",
+        "openai_service": "sk-" "svcacct-" "Hn4Jm5Kp6Lq7Mr8Ns9Ot0-Pu1Qv2Rw3_Sx4Ty5Uz6Va7Wb8",
+    }
+    scrubbed = default_redact({key: f"export KEY={value} # rotate" for key, value in secrets.items()})
+    for key, secret in secrets.items():
+        assert scrubbed[key] == f"export KEY={REDACTED_MARKER} # rotate", key
+
+
+def test_value_redaction_leaves_short_sk_words_alone():
+    text = "install scikit-learn (import as sk-learn) and ask-me-anything"
+    assert default_redact({"note": text})["note"] == text
+
+
 def test_value_redaction_applies_at_ingest(api):
     fake_key = "sk-" "live-ABCDEFGHIJKLMNOP1234"
     run_id = api.post("/runs", json={}).json()["id"]
