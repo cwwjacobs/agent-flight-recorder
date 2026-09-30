@@ -23,7 +23,7 @@ jobs:
         run: python -m pytest backend/tests -q
 
   ui:
-    name: UI build and dependency audit
+    name: UI build, dependency audit, and browser journey
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -41,3 +41,18 @@ jobs:
       - name: Build UI
         working-directory: ui
         run: npm run build
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install browser journey backend, SDK, and CLI
+        run: pip install --constraint backend/requirements.txt -e ./sdk -e ./cli -e './backend[dev]'
+      - name: Install Chromium and system dependencies
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+      - name: Run browser journey
+        working-directory: ui
+        run: |
+          export AFR_E2E_PYTHON="$(command -v python)"
+          export AFR_CLI="$(command -v afr)"
+          npx playwright test

@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 PIP := .venv/bin/pip
 
-.PHONY: install serve test demo demo-docker demo-langchain smoke docker-up clean
+.PHONY: install serve test test-e2e demo demo-docker demo-langchain smoke docker-up clean
 
 install:        ## create venv and install backend, sdk, cli (editable) + test deps
 	python3 -m venv .venv
@@ -13,6 +13,9 @@ serve:          ## run the backend on http://127.0.0.1:8700
 
 test:           ## run the python test suite
 	$(PY) -m pytest backend/tests -q
+
+test-e2e:       ## run the browser smoke journey (needs .venv; builds ui first)
+	cd ui && npm run test:e2e
 
 demo:           ## record a toy agent run via the SDK (backend must be up)
 	$(PY) examples/toy_agent/toy_agent.py
