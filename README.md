@@ -1,231 +1,71 @@
-# Agent Flight Recorder
+# Windows Server 2019 — native Python service deployment proof
 
-[![CI](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/cwwjacobs/agent-flight-recorder/actions/workflows/ci.yml)
-[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-purple.svg)](LICENSE)
+Small, synthetic reproduction of a **non-container** Windows Service Control Manager (SCM) lifecycle: automatic startup, service process failure recovery, and reboot persistence. This is an engineering proof **only**; it does not contain the client's Arabic API, corpus, models, credentials, or data.
 
-**Local-first recorder for observable tool-using agent runs.**
+## What is in this repository
 
-Agent Flight Recorder (AFR) records the operational evidence of an agent run:
+- `src/ws19proof/windows_service.py`: importable pywin32 SCM service hosted by `pythonservice.exe` (native Windows service, **not** Task Scheduler, Docker, WSL, or an always-on terminal).
+- `src/ws19proof/http_health.py`: localhost-only `GET /healthz` JSON reporting PID, unique instance ID and process start time.
+- `scripts/install.ps1`: elevated installer, SCM Automatic startup, restart after unexpected exit (5s delay).
+- `scripts/verify.ps1`: captures actual SCM state + HTTP health, force-kill/recovery test, manual reboot comparison.
+- `scripts/uninstall.ps1`: stop and remove only the rebuilt test service.
+- `tests/test_health.py`: portable HTTP contract tests.
+- `PROOF_STATUS.md`: historical-vs-current evidence boundary.
 
-- model calls
-- tool calls
-- tool results
-- state snapshots
-- checkpoints
-- errors
-- replay requests
+## Prerequisites
 
-From those recorded events, AFR can export portable run bundles and generate regression-case material.
+1. A disposable **Windows Server 2019 x64** test VM, administrator PowerShell 5.1 or newer.
+2. A **machine-wide x64 Python 3.11** install accessible to `LocalSystem`. Avoid Microsoft Store or per-user installs. Internet / offline package mirror access is required for first-time pip installs.
+3. Python packaging tooling (`pip`). `install.ps1` installs the source package and pywin32; follow pywin32's service installation troubleshooting if DLL resolution fails.
+4. Nothing at TCP port `127.0.0.1:8765` (loopback only; no firewall opening).
 
-When an agent fails, AFR preserves what the agent received, what the model returned, what tools were requested, what those tools returned, what state was recorded, where checkpoints were created, and what errors ended the run.
+**Safety:** Use a disposable VM. Recovery verification deliberately kills the test service process. Reboot is a separate **manual**, operator-controlled step. Do not run the demo against production services or place client data in this repo.
 
-AFR does not expose a model's unrecorded internals, private reasoning traces, neural state, or true internal intent. It preserves execution evidence that was actually recorded through the SDK, API, CLI, or adapter path in use.
+## Build and test (portable Python HTTP contract)
 
-```text
-1. Record           - capture model calls, tool calls, tool results, state snapshots, checkpoints, errors, and replay requests
-2. Inspect          - review the recorded event timeline and recorded state around a failure
-3. Export           - preserve a portable JSON run bundle
-4. Regression case  - turn a checkpoint into a pytest fixture for the repair
-5. Eval seed        - promote recurring failure shapes into eval records
+```shell
+python -m pip install .
+python -m unittest discover -s tests -v
+python -m ws19proof.http_health --port 8765
+# In another console: http://127.0.0.1:8765/healthz
 ```
 
-## Why AFR exists
+Portable unit tests do **not** validate the Windows SCM lifecycle.
 
-Tool-using agents can fail after prompts, tool calls, state updates, or external side effects have already happened. By the time the failure is noticed, the run context may be scattered across logs or gone.
+## Windows Server 2019 test run
 
-AFR keeps a local record of the run evidence:
+From an **elevated** PowerShell window in the checkout:
 
-- append-only recorded event timelines
-- model calls and model responses
-- tool calls and tool results
-- recorded state snapshots and checkpoint metadata
-- checkpoint inspection
-- replay tickets and replay plans
-- side-effect-aware replay helpers
-- CLI-first inspection and export paths
-- SQLite-first local storage
-- best-effort redaction at ingest
+```powershell
+# Step 1: Install into the machine-wide Python environment, register with SCM.
+.\scripts\install.ps1 -PythonExe "C:\Program Files\Python311\python.exe"
 
-## What AFR does
+# Step 2: Verify the SCM PID matches the HTTP process PID.
+.\scripts\verify.ps1 -Mode Health -EvidencePath .\evidence\health.json
 
-AFR is intended for local development, debugging, evaluation, and audit workflows. It helps answer practical questions:
+# Step 3: Intentionally kill THIS TEST SERVICE, watch SCM restart it.
+.\scripts\verify.ps1 -Mode Recovery -EvidencePath .\evidence\recovery.json
 
-- What did the agent receive?
-- What did the model return?
-- What tools were requested or executed?
-- What did those tools return?
-- What state was recorded before the failure?
-- Which checkpoint can be used to prepare a replay request?
-- Which side-effecting tools should be mocked, skipped, blocked, or explicitly allowed?
-- Which failure should become a regression case or eval seed?
+# Step 4: Record an OS boot timestamp and running service BEFORE reboot.
+.\scripts\verify.ps1 -Mode BeforeReboot -EvidencePath .\evidence\before-reboot.json
 
-The replay boundary is explicit. The backend reconstructs recorded state and prepares a replay ticket. It does not execute user code. A user-provided resume handler owns replay execution and should use the SDK helpers to honor mock, skip, block, and allow decisions. Non-dry-run handlers execute in a separate SDK worker process so timeout enforcement can terminate the running handler.
+# Step 5: REBOOT THE VM MANUALLY through your normal approved process.
+# No script in this repo performs a reboot.
 
-## What AFR does not claim
-
-AFR is not a model interpretability system. It does not recover true model intent, private reasoning traces, neural activations, or training traces.
-
-AFR is not an enterprise security product or sandbox by itself. Recorded prompts, tool payloads, and state snapshots can contain sensitive data. Redaction is best-effort, not a guarantee.
-
-AFR is not a guarantee that every state change was captured. State reconstruction is limited to events and snapshots actually recorded by the SDK, CLI, API, or adapter path in use.
-
-## Quickstart
-
-Docker starts the backend API on `http://127.0.0.1:8700` and stores data in a local Docker volume:
-
-```bash
-docker compose up --build     # backend API on http://127.0.0.1:8700
-make demo-docker              # seed the checkout-agent-payment-timeout demo incident
-afr runs list
+# Step 6: After reconnecting, check OS boot timestamp advanced and service is healthy.
+.\scripts\verify.ps1 -Mode AfterReboot -BaselinePath .\evidence\before-reboot.json -EvidencePath .\evidence\after-reboot.json
 ```
 
-Without Docker:
+The verifier **fails** if the service isn't Running, isn't Automatic, health doesn't match SCM PID, or SCM recovery is absent. Recovery also requires a changed process PID **and** changed instance ID; reboot requires a later OS boot timestamp and a healthy service after that boot. The files in `evidence/` are intentionally gitignored—inspect and redact them before choosing whether to share.
 
-```bash
-make install
-make serve                    # API on http://127.0.0.1:8700
-make demo
-afr doctor
-afr runs list
+Cleanup (elevated PowerShell):
+
+```powershell
+.\scripts\uninstall.ps1
 ```
 
-Replay is deliberately disabled by default. Enable it only when you want to request replay tickets or invoke resume handlers:
+## Verification claims
 
-```bash
-export AFR_REPLAY_ENABLED=true
-# Docker: pass the same variable into compose
-AFR_REPLAY_ENABLED=true docker compose up --build
-```
+This is a **reconstruction**, not the original September 2026 test script. It carries a different service name (`VesperaProofRebuild`) to avoid overwriting the original (`VesperaProof`). No contemporary Windows 2019 success is claimed merely by publishing code. See `PROOF_STATUS.md` and genuine generated `evidence/*.json` before representing a Windows result as verified.
 
-## CLI-first spine
-
-```bash
-afr runs list --status failed
-afr runs show 648c2cd9
-afr events 648c2cd9 --errors-only
-afr export 648c2cd9 -o incident-42.json
-afr-regression-case 648c2cd9 --from dfd2082b -o cases/payment-timeout
-```
-
-The generated regression case contains `case.json`, a pytest template, and a README. It is safe by default: it gives you a fixture for asserting the repaired behavior, not a mechanism for surprise side effects.
-
-## Record your agent
-
-```python
-import afr
-
-@afr.record_tool_call
-def search_flights(destination: str, budget_usd: int) -> dict:
-    ...
-
-@afr.record_model_call(model="gpt-x", provider="openai")
-def ask_llm(prompt: str) -> str:
-    ...
-
-with afr.start_run("trip-planner", metadata={"env": "dev"}):
-    plan = ask_llm("plan a trip to Tokyo")
-    flights = search_flights("Tokyo", 900)
-    afr.log_state({"booked": {"flight": flights}}, mode="merge")
-    afr.checkpoint("after-flights")
-```
-
-## Replay from a checkpoint
-
-```python
-import afr
-
-@afr.register_resume_handler
-def resume(ctx: afr.ReplayContext):
-    agent = MyAgent.from_state(ctx.state)
-    return agent.continue_run()
-
-# Requires AFR_REPLAY_ENABLED=true in the replaying process and backend.
-afr.replay(run_id, checkpoint_id, mode="mock_tools")
-```
-
-The server reconstructs recorded state and prepares a replay ticket. It does not execute user code. The resume handler enforces the plan when it uses the SDK helpers, including mock, skip, block, and allow decisions for tool calls.
-
-## Integrations
-
-| Stack | AFR attachment path |
-| --- | --- |
-| Plain Python | decorators + `with afr.start_run(...)` |
-| LangChain / LangGraph | callback handler |
-| Custom framework | HTTP API or SDK calls |
-| Codex | `Codex-AFR/` wrapper and harness |
-
-See:
-
-- [docs/quickstart.md](docs/quickstart.md)
-- [docs/sdk.md](docs/sdk.md)
-- [docs/cli.md](docs/cli.md)
-- [docs/api.md](docs/api.md)
-- [docs/replay.md](docs/replay.md)
-- [docs/data-model.md](docs/data-model.md)
-- [docs/integrations.md](docs/integrations.md)
-- [docs/evals.md](docs/evals.md)
-- [docs/roadmap.md](docs/roadmap.md)
-- [docs/mcp.md](docs/mcp.md)
-- [docs/audit-2026-09-19.md](docs/audit-2026-09-19.md)
-- [RELEASE_NOTES_v0.3.0.md](RELEASE_NOTES_v0.3.0.md)
-
-## Security model
-
-AFR is localhost-first. Recorded prompts, tool payloads, and state snapshots can contain sensitive information.
-
-- The backend binds to `127.0.0.1` by default for local runs.
-- Docker publishes the service to `127.0.0.1:8700` on the host by default.
-- CORS is restricted to local AFR origins by default.
-- Set `AFR_API_TOKEN=<token>` before exposing AFR outside loopback.
-- Redaction runs at ingest and is best-effort, not a guarantee.
-- Treat the SQLite database as sensitive at rest.
-
-## Repository layout
-
-```text
-backend/   FastAPI app: API, replay engine, storage, schemas
-sdk/       Python SDK: client, context, hooks, wrappers, integrations
-cli/       afr CLI
-Codex-AFR/ Codex wrapper, hook bridge, package helpers, and smoke test
-examples/  runnable offline demo agents
-scripts/   demo and smoke helpers
-docs/      quickstart, SDK, CLI, API, replay, data model, integrations, evals
-evals/     small public eval seed records for AFR behavior
-```
-
-## Tests
-
-```bash
-make test
-make smoke
-```
-
-## Project status
-
-AFR is a source-available project maintained and licensed by Corey Jacobs /
-cwwjacobs. Current versions are available for permitted noncommercial use
-under PolyForm Noncommercial 1.0.0. Commercial use requires a separate license.
-
-Current focus areas:
-
-- hardening replay policy behavior
-- expanding adapter coverage beyond the current Python and LangChain / LangGraph paths
-- improving diff and checkpoint inspection flows
-- preserving local-first privacy while making agent failures easier to reproduce safely
-- turning repaired failure shapes into regression cases and eval seeds
-
-See:
-
-- [LICENSE](LICENSE)
-- [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)
-- [NOTICE](NOTICE)
-- [OPEN_SOURCE_FREEZE.md](OPEN_SOURCE_FREEZE.md)
-
-## License
-
-Agent Flight Recorder is released under the
-[PolyForm Noncommercial License 1.0.0](LICENSE).
-
-Copyright (c) 2026 Corey Jacobs.
-
-Commercial licensing inquiries: [coresynth@gmail.com](mailto:coresynth@gmail.com).
+The Windows service integration depends on pywin32 and its system-wide post-install steps. See [pywin32's Windows Service guidance](https://github.com/mhammond/pywin32#installation) if the SCM host cannot locate the Python DLLs or import the installed service class.

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vespera-windows-service-proof"
+version = "0.1.0"
+description = "Isolated Windows Server 2019 native service and SCM recovery reproduction"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+windows = ["pywin32>=306; sys_platform == 'win32'"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

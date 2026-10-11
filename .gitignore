@@ -1,67 +1,9 @@
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-.eggs/
 .venv/
-venv/
+build/
+dist/
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Node / UI
-node_modules/
-ui/dist/
-ui/.vite/
-
-# Local secrets and provider configuration
-.env
-.env.*
-!.env.example
-!.env.*.example
-.npmrc
-.pypirc
-.netrc
-credentials.json
-credentials.*.json
-secrets.json
-secrets.*.json
-token.json
-token.*.json
-service-account.json
-service-account-*.json
-*.pem
-*.key
-*.p12
-*.pfx
-*.jks
-*.keystore
-*.token
-*.secret
-
-# AFR runtime data
-*.db
-*.db-wal
-*.db-shm
-afr_data/
-.afr/
-exports/
-share/
-
-# OS / editor
-.DS_Store
-.idea/
-.vscode/
-
-# NOTE: the root dist/ folder holds the committed MVP snapshot and is tracked;
-# only ui/dist/ (build output) is ignored above.
-
-# Generated submission/package artifacts
-*.tar.gz
-benchflow_submission.zip
-kaggle_submission.tar.gz
-
-# Raw trace/transcript artifacts
-terminal-transcript.txt
-kimi-trace-*.json
-kimi-clean-*/
+evidence/
+!evidence/.gitkeep

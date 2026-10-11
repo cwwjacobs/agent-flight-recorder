@@ -1,0 +1,25 @@
+name: Portable Python smoke tests
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  health-contract:
+    name: HTTP contract (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install .
+      - run: python -m unittest discover -s tests -v
+      - name: Import native Windows service (Windows only)
+        if: runner.os == 'Windows'
+        run: |
+          python -m pip install '.[windows]'
+          python -c "import ws19proof.windows_service; print('native Windows service class imports')"
+# This workflow does NOT install a service, exercise SCM, or test Windows Server 2019.
