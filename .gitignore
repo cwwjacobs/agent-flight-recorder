@@ -13,6 +13,10 @@ venv/
 node_modules/
 ui/dist/
 ui/.vite/
+ui/test-results/
+ui/playwright-report/
+ui/e2e/.seed.json
+ui/e2e/.export.json
 
 # Local secrets and provider configuration
 .env
