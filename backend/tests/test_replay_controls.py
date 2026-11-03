@@ -23,6 +23,11 @@ def _last_event_of_type(api, run_id, event_type):
     return None
 
 
+def _replay_requested_events(api, run_id):
+    events = api.get(f"/runs/{run_id}/events").json()
+    return [e for e in events if e["name"] == "replay_requested"]
+
+
 def test_replay_disabled_by_default(monkeypatch, api):
     """Without AFR_REPLAY_ENABLED the endpoint returns a clear disabled outcome
     and records a replay_disabled event."""
@@ -111,3 +116,72 @@ def test_unexpected_failure_writes_replay_failed(monkeypatch, api):
     assert event["payload"].get("actor") == "system"
     assert "boom" in event["payload"].get("message", "")
     assert "RuntimeError" in event["payload"].get("exception", "")
+
+
+def test_replay_with_single_declared_delta(monkeypatch, api):
+    """A ticket declaring one arm delta returns ready, and the arm_id + delta
+    land on the ticket AND in the replay_requested event payload, so the
+    declared delta is recomputable from the run record alone."""
+    monkeypatch.setenv("AFR_REPLAY_ENABLED", "true")
+    run_id, ckpt_id = _create_run_and_checkpoint(api)
+    delta = {"kind": "selected_cards", "ref": "cards-v1"}
+
+    r = api.post(
+        f"/runs/{run_id}/replay",
+        json={"checkpoint_id": ckpt_id, "arm_id": "arm-selected", "delta": delta},
+    )
+    assert r.status_code == 200
+    ticket = r.json()
+    assert ticket["status"] == "ready"
+    assert ticket["arm_id"] == "arm-selected"
+    assert ticket["delta"] == delta
+
+    requested = _replay_requested_events(api, run_id)
+    assert len(requested) == 1
+    assert requested[0]["payload"].get("arm_id") == "arm-selected"
+    assert requested[0]["payload"].get("delta") == delta
+
+
+def test_replay_with_two_deltas_rejected_and_no_event(monkeypatch, api):
+    """A ticket carrying more than one delta is rejected at creation, and a
+    rejected arm writes NO replay_requested event — rejected arms must not
+    pollute the run timeline. Checked at the API (a list fails request
+    validation) and at the service, which is the ticket-creation path."""
+    from app.replay import prepare_replay
+
+    monkeypatch.setenv("AFR_REPLAY_ENABLED", "true")
+    run_id, ckpt_id = _create_run_and_checkpoint(api)
+    two_deltas = [{"kind": "generic_context"}, {"kind": "oracle_context"}]
+
+    r = api.post(
+        f"/runs/{run_id}/replay",
+        json={"checkpoint_id": ckpt_id, "arm_id": "arm-two", "delta": two_deltas},
+    )
+    assert r.status_code == 422
+
+    with pytest.raises(ValueError, match="exactly one delta"):
+        prepare_replay(run_id, ckpt_id, arm_id="arm-two", delta=two_deltas)
+
+    assert _replay_requested_events(api, run_id) == []
+
+
+def test_replay_without_arm_or_delta_behaves_as_before(monkeypatch, api):
+    """No arm/delta declared: the ticket and its replay_requested event are
+    exactly as before Step 1, with arm_id and delta null on both."""
+    monkeypatch.setenv("AFR_REPLAY_ENABLED", "true")
+    run_id, ckpt_id = _create_run_and_checkpoint(api)
+
+    r = api.post(f"/runs/{run_id}/replay", json={"checkpoint_id": ckpt_id})
+    assert r.status_code == 200
+    ticket = r.json()
+    assert ticket["status"] == "ready"
+    assert ticket["mode"] == "dry_run"
+    assert ticket["replay_event_id"]
+    assert ticket["arm_id"] is None
+    assert ticket["delta"] is None
+
+    requested = _replay_requested_events(api, run_id)
+    assert len(requested) == 1
+    assert requested[0]["payload"].get("actor") == "replay"
+    assert requested[0]["payload"].get("arm_id") is None
+    assert requested[0]["payload"].get("delta") is None

@@ -57,7 +57,12 @@ def replay(run_id: str, body: ReplayIn) -> dict:
     try:
         with not_found_to_404():
             ticket = prepare_replay(
-                run_id, body.checkpoint_id, mode=body.mode, approved=body.approved
+                run_id,
+                body.checkpoint_id,
+                mode=body.mode,
+                approved=body.approved,
+                arm_id=body.arm_id,
+                delta=body.delta,
             )
     except ReplayDisabled as exc:
         return _disabled_out(run_id, body, exc)

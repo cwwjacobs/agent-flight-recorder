@@ -9,6 +9,8 @@ tool the plan mocks). Free mode is restricted to the inherently safe modes
 
 from __future__ import annotations
 
+from typing import Any
+
 from app import config
 from app.engine import checkpoints as ckpt_engine
 from app.engine import events as event_engine
@@ -25,14 +27,56 @@ class ReplayDisabled(Exception):
         self.event_id = event_id
 
 
+# The four fixed counterfactual arms a ticket may declare as its one delta.
+DELTA_KINDS = frozenset(
+    {"none", "generic_context", "selected_cards", "oracle_context"}
+)
+
+
+def _validate_arm_declaration(
+    arm_id: str | None, delta: dict[str, Any] | None
+) -> None:
+    """Validate a ticket's declared arm before anything is recorded.
+
+    A ticket declares exactly one delta: a single {"kind", "ref"} object.
+    A list means the caller tried to carry more than one delta, which is
+    rejected at creation so a rejected arm never writes a timeline event.
+    """
+    if arm_id is not None and not isinstance(arm_id, str):
+        raise ValueError(f"arm_id must be a string; got {type(arm_id).__name__}")
+    if delta is None:
+        return
+    if isinstance(delta, list):
+        raise ValueError(
+            "a replay ticket declares exactly one delta; got a list of "
+            f"{len(delta)} deltas"
+        )
+    if not isinstance(delta, dict):
+        raise ValueError(
+            "delta must be a single {'kind', 'ref'} object; got "
+            f"{type(delta).__name__}"
+        )
+    kind = delta.get("kind")
+    if kind not in DELTA_KINDS:
+        raise ValueError(
+            f"unknown delta kind {kind!r}; expected one of {sorted(DELTA_KINDS)}"
+        )
+    ref = delta.get("ref")
+    if ref is not None and not isinstance(ref, str):
+        raise ValueError("delta ref must be a string naming the material, or null")
+
+
 def prepare_replay(
     run_id: str,
     checkpoint_id: str,
     mode: str = "dry_run",
     approved: bool = False,
+    arm_id: str | None = None,
+    delta: dict[str, Any] | None = None,
 ) -> ReplayTicket:
     if mode not in MODES:
         raise ValueError(f"unknown replay mode {mode!r}; expected one of {MODES}")
+    _validate_arm_declaration(arm_id, delta)
     if mode not in FREE_MODES:
         ensure_premium("replay_policies")
 
@@ -99,6 +143,8 @@ def prepare_replay(
             "label": checkpoint.get("label"),
             "mode": mode,
             "approved": approved,
+            "arm_id": arm_id,
+            "delta": delta,
             "tool_plan": tool_plan,
         },
     )
@@ -124,5 +170,7 @@ def prepare_replay(
             "tool_plan": tool_plan,
             "mock_results": mock_results,
             "policy_notes": notes,
+            "arm_id": arm_id,
+            "delta": delta,
         },
     )

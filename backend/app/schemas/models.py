@@ -156,6 +156,13 @@ class ReplayIn(BaseModel):
     # required to unblock tools whose policy is requires_approval, and only
     # meaningful in allow_side_effects mode
     approved: bool = False
+    # Counterfactual arm declaration: an arm id plus exactly one declared
+    # delta, a single {"kind", "ref"} object. The delta's shape and kind are
+    # validated in prepare_replay, alongside the replay-mode check; a list
+    # (more than one delta) fails request validation here and is also
+    # rejected by the service for direct callers.
+    arm_id: str | None = None
+    delta: dict[str, Any] | None = None
 
 
 class ReplayOut(BaseModel):
@@ -171,3 +178,8 @@ class ReplayOut(BaseModel):
     tool_plan: dict[str, dict[str, str]] = Field(default_factory=dict)
     mock_results: dict[str, Any] = Field(default_factory=dict)
     policy_notes: str | None = None
+    # declared counterfactual arm, echoed from the ticket; null when the
+    # caller declared none. Defaults keep hand-built ticket dicts (the
+    # disabled / limit-exhausted responses) valid.
+    arm_id: str | None = None
+    delta: dict[str, Any] | None = None
